@@ -1,0 +1,53 @@
+---
+title: "Project 1"
+author: "Cass Crews"
+format: html
+editor: visual
+---
+
+# Introduction
+
+# Loading in key packages
+
+```{r}
+library(tidyverse)
+library(httr)
+library(jsonlite)
+```
+
+# Understanding the Census API
+
+To obtain PUMS data via the Census API, we can take the standard approach of using `httr::GET()` and determining the correct URL structure to obtain the data we want. 
+
+As an example, we may want to obtain educational attainment for survey respondents living in Alabama in 2022. Let's break down the corresponding URL:
+
+> `https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL&for=state:01`
+
+The portion of the URL up to the "`?`" (`https://api.census.gov/data/2022/acs/acs1/pums`) indicates that we want data from the ACS 2022 1-year PUMS file. `get=PWGTP,SCHL` indicates we want the person-level weights, which we will use when generating tabulations to ensure our tabulations are representative of the Alabama population, as well as the educational attainment variable (`SCHL`). `for=state:01` indicates we only want data for Alabama. 
+
+Let's use `GET()` to read in our data and see what we get. 
+
+```{r}
+example_data<-GET("https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL&for=state:01")
+
+str(example_data,max.level=1)
+```
+
+There is a lot of information returned by the Census API, but what we actually want is the raw, currently uninterpretable information in `example_data$content`. To extract these data in a usable form, we can combine the `rawToChar()` function, which will convert the raw data to human-interpretable data, with the `fromJSON()` function from the `jsonlite` package, which will convert our data to a data frame. As a final step, we can coerce our data to a tibble. This will result in cleaner printing. 
+
+```{r}
+example_mat<-fromJSON(rawToChar(example_data$content))
+
+colnames(example_mat)<-example_mat[1,]
+
+example_mat<-example_mat[-1,]
+
+example_tbl<-as_tibble(example_mat)
+
+example_tbl$PWGTP<-as.numeric(example_tbl$PWGTP)
+
+example_tbl
+```
+
+This is still not particularly useful as educational attainment (`SCHL`) is a factor variable; the values have explicit meaning. Similarly, the values of `state` are all `01` rather than `Alabama`. 
+

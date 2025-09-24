@@ -42,7 +42,8 @@ colnames(example_mat)<-example_mat[1,]
 
 example_mat<-example_mat[-1,]
 
-example_tbl<-as_tibble(example_mat)
+#example_tbl<-as_tibble(example_mat) |>
+#  mutate(across(everything(),as.numeric))
 
 example_tbl$PWGTP<-as.numeric(example_tbl$PWGTP)
 
@@ -50,4 +51,43 @@ example_tbl
 ```
 
 This is still not particularly useful as educational attainment (`SCHL`) is a factor variable; the values have explicit meaning. Similarly, the values of `state` are all `01` rather than `Alabama`. 
+
+Additionally, it would be nice to not need to write out all the code to complete all the post-`GET` processing each time we make an API call. To deal with this issue, let's write a helper function that completes the data processing for us. 
+
+```{r}
+content_cleaner<-function(response) {
+  mat<-fromJSON(rawToChar(response$content))
+
+  colnames(mat)<-mat[1,]
+  
+  mat<-mat[-1,]
+  
+  tbl<-as_tibble(mat)
+  
+  tbl$PWGTP<-as.numeric(tbl$PWGTP)
+  
+  return(tbl)
+}
+```
+
+That should speed up the process. Let's test the function on our original API response to ensure it works.
+
+```{r}
+test_tbl<-content_cleaner(example_data)
+
+test_tbl
+```
+
+It looks like our function worked!
+
+# A Function to Query Census API and Clean Data
+
+we still face the issue that our data aren't as informative as they could be. Also, it would be nice to be able to change our request and still have the resulting tibble be an informative and useful dataset. 
+
+To solve these current limitations, let's build a comprehensive query function that allows the user to do the following:
+- Select the survey year (2010 to 2023, excluding 2020)
+- Select from a set of useful numeric variables, and returns    these data in the appropriate type
+- Select from a set of useful categorical variables and returns these data as factor variables with appropriate levels
+- Specify a geography level (All, Region, Division, or State)
+- Optionally subset the data to spectific geographies within the specified         geography level
 

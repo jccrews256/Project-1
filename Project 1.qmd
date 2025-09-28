@@ -92,26 +92,68 @@ To solve these current limitations, let's build a comprehensive query function t
 - Optionally subset the data to spectific geographies within the specified         geography level
 
 ```{r}
-census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="All") {
+census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",region_select="01") {
   #Building the URL
   #"https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL&for=state:01"
   
   if (geo_level=="All") {
     URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","))
+  } else if (is.null(region_select)) {
+    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level,":*")
   } else {
-    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level)
+    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level,":",region_select)
   }
   
   response<-GET(URL)
   
-  content_cleaner(response)
+  clean_response<-content_cleaner(response)
+  
+  #num_cols<-!(numvar %in% c("JWAP","JWDP"))
+  
+  #if (length(num_cols)>1) {
+  #  num_var_string<-paste(num_cols,collapse=",")
+  #  clean_response<- clean_response |>
+  #    mutate(across(noquote(num_var_string)),as.numeric())
+  #} else if (length(num_cols==1)) {
+  #  clean_response<- clean_response |>
+  #    mutate(across(noquote(numvar)),as.numeric())
+  #} 
+  
+  num_options<-c("AGEP","GASP","GRPIP","JWMNP")
+ 
+  clean_response<- clean_response |>
+    mutate(across(any_of(num_options),as.numeric)) 
+  
+  time_options<-c("JWAP","JWDP")
+  
+  time_vars<-intersect(time_options,numvar)
+  
+  for (t in time_vars) {
+    metadata<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/",t,".json"))
+    
+    value_dict<-data.frame(levels=unlist(names(metadata$values$item)),
+                           labels=unlist(metadata$values$item,use.names=FALSE))
+  }
+  
+  #Still need to handle time variables
+  
+  #Still need to deal with NAs
+  
+  for (c in catvar) {
+    metadata<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/",c,".json"))
+    
+    clean_response[c]<-factor(clean_response[[c]],levels=unlist(names(metadata$values$item)),labels=unlist(metadata$values$item,use.names=FALSE))
+  }
+  
+  return(clean_response)
 }
 
-test_response<-census_get()
+test_response<-census_get(catvar=c("SEX","HHL"))
 
 
-test<-read_json("https://api.census.gov/data/2023/acs/acs1/pums/variables/SCH.json")
+test<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/JWAP.json"))
 
 unlist(test$values$item,use.names=FALSE)
+unlist(names(test$values$item))
 ```
 

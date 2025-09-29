@@ -13,6 +13,9 @@ editor: visual
 library(tidyverse)
 library(httr)
 library(jsonlite)
+library(stringr)
+library(lubridate)
+library(hms)
 ```
 
 # Understanding the Census API
@@ -92,32 +95,24 @@ To solve these current limitations, let's build a comprehensive query function t
 - Optionally subset the data to spectific geographies within the specified         geography level
 
 ```{r}
-census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",region_select="01") {
-  #Building the URL
-  #"https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL&for=state:01"
+census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",region_select=NULL) {
+  #Checking user inputs
+  if (!(year %in% c(2010:2019,2021:2023))) stop("year must be between 2010 and 2023, and must not be 2020")
+  if (year< 2019 & !is.null(intersect(c("JWTRNS","HISPEED"),numvar))) stop("JWTRNS and HISPEED unavailable prior to 2019")
+  if (is.null(numvar)) stop("At least one numeric variable must be selected")
   
-  if (geo_level=="All") {
+  #Building the URL
+  if (geo_level=="All") { #Case where All is the specified geography
     URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","))
-  } else if (is.null(region_select)) {
+  } else if (is.null(region_select)) { #Case where another geography is specified and no specific regions are selected
     URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level,":*")
-  } else {
-    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level,":",region_select)
+  } else { #Case where a subset of regions is specified
+    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level,":",paste(region_select,collapse=","))
   }
   
   response<-GET(URL)
   
   clean_response<-content_cleaner(response)
-  
-  #num_cols<-!(numvar %in% c("JWAP","JWDP"))
-  
-  #if (length(num_cols)>1) {
-  #  num_var_string<-paste(num_cols,collapse=",")
-  #  clean_response<- clean_response |>
-  #    mutate(across(noquote(num_var_string)),as.numeric())
-  #} else if (length(num_cols==1)) {
-  #  clean_response<- clean_response |>
-  #    mutate(across(noquote(numvar)),as.numeric())
-  #} 
   
   num_options<-c("AGEP","GASP","GRPIP","JWMNP")
  
@@ -133,6 +128,28 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",regi
     
     value_dict<-data.frame(levels=unlist(names(metadata$values$item)),
                            labels=unlist(metadata$values$item,use.names=FALSE))
+    
+    value_dict[,3:4]<-str_split_fixed(value_dict[[2]]," to ",2)
+    
+    value_dict[3]<-parse_hm(value_dict[[3]])
+    value_dict[4]<-parse_hm(value_dict[[4]])
+    
+    names(value_dict)[3:4]<-c("time_1","time_2")
+    
+    value_dict<- value_dict |>
+      mutate(secs_1=as.numeric(time_1),
+             secs_2=as.numeric(time_2),
+             avg_time=as_hms((secs_1+secs_2)/2)) |>
+      select(levels,avg_time)
+    
+    names(value_dict)[1]<-t
+    
+    clean_response<-left_join(clean_response,value_dict,by=t)
+    
+    clean_response[t]<-clean_response$avg_time
+    
+    clean_response<- clean_response |>
+      select(-avg_time)
   }
   
   #Still need to handle time variables
@@ -148,12 +165,6 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",regi
   return(clean_response)
 }
 
-test_response<-census_get(catvar=c("SEX","HHL"))
-
-
-test<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/JWAP.json"))
-
-unlist(test$values$item,use.names=FALSE)
-unlist(names(test$values$item))
+test_response<-census_get(year=2022,catvar=c("SEX","HHL"),numvar=c("AGEP","JWAP","JWDP","JWTRNS"),region_select="04")
 ```
 

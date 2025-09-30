@@ -96,72 +96,127 @@ To solve these current limitations, let's build a comprehensive query function t
 
 ```{r}
 census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",region_select="Arizona") {
-  #Checking user inputs
-  if (!(year %in% c(2010:2019,2021:2023))) stop("year must be between 2010 and 2023, and must not be 2020")
-  if (year< 2019 & ("JWTRNS" %in% catvar)) stop("JWTRNS unavailable prior to 2019")
-  if (year< 2016 & ("HISPEED" %in% catvar)) stop("HISPEED unavailable prior to 2016")
-  if (is.null(numvar)) stop("At least one numeric variable must be selected")
-  if(length(setdiff(numvar,c("AGEP","GASP","GRPIP","JWMNP","JWAP","JWDP")))> 0) stop("At least one numeric variable not allowed")
-  if (is.null(catvar)) stop("At least one categorical variable must be selected") 
-    if(length(setdiff(catvar,c("FER", "HHL", "HISPEED", "JWTRNS", "SCH", "SCHL", "SEX")))> 0) stop("At least one categorical variable not allowed")
-  if (length(geo_level)> 1) stop("No more than one geographic level allowed")
-  if (length(intersect(geo_level,c("all","region","division","state")))==0) stop("Invalid geography level")
   
-  #Obtaining region names and codes
+  #CHECKING USER INPUTS
+  
+  if (!(year %in% c(2010:2019,2021:2023))) 
+    stop("year must be between 2010 and 2023, and must not be 2020") #Confirming year input
+  if (year< 2019 & ("JWTRNS" %in% catvar)) 
+    stop("JWTRNS unavailable prior to 2019") #Confirming JWTRNS not requested prior to 2019
+  if (year< 2016 & ("HISPEED" %in% catvar)) 
+    stop("HISPEED unavailable prior to 2016") #Confirming HISPEED not requested prior to 2016
+  if (is.null(numvar)) 
+    stop("At least one numeric variable must be selected") #Confirming numvar not set to NULL
+  if(length(setdiff(numvar,c("AGEP","GASP","GRPIP","JWMNP","JWAP","JWDP")))> 0) 
+    stop("At least one numeric variable not allowed") #Confirming all numvar inputs are valid
+  if (is.null(catvar)) 
+    stop("At least one categorical variable must be selected") #Confirming catvar not set to NULL
+  if(length(setdiff(catvar,c("FER", "HHL", "HISPEED", "JWTRNS", "SCH", "SCHL", "SEX")))> 0) 
+    stop("At least one categorical variable not allowed") #Confirming all catvar inputs are valid
+  if (length(geo_level)> 1) 
+    stop("No more than one geographic level allowed") #Confirming only one geo level specified
+  if (is.null(geo_level)) 
+    stop("Must specify a geographic level") #Confirming geo_level not set to NULL
+  if (length(intersect(geo_level,c("all","region","division","state")))==0) 
+    stop("Invalid geography level") #Confirming geo_level input is valid
+
+  
+
+      
+  #CONVERTING geo_level TO CODES FOR GET URL SPECIFICATION
+  
+  #Handling state case
   if (geo_level=="state") {
+    #Reading in state variable metadata
+    ##Using 2022 as metadata not provided in all years
     metadata_geo<-read_json(paste0("https://api.census.gov/data/2022/acs/acs1/pums/variables/ST.json"))
     
+    #Capturing state fips codes and labels
+    geo_dict<-data.frame(state=unlist(names(metadata_geo$values$item)),
+                          labels=unlist(metadata_geo$values$item,use.names=FALSE))
+    
+    #Removing leading zeros to protect against code format changes across years  
+    geo_dict$state<-as.character(as.numeric(geo_dict$state))
+    
+    #Stripping labels down to only state names (originally include postal abbreviations)  
+    geo_dict$labels<-word(geo_dict$labels,1,sep="/")
+    
+    #When state subset specified, capturing corresponding FIPS codes for GET URL
     if (!is.null(region_select)) {
-      geo_dict<-data.frame(state=unlist(names(metadata_geo$values$item)),
-                           labels=unlist(metadata_geo$values$item,use.names=FALSE))
+      if (length(intersect(geo_dict$labels, region_select))==0) 
+        stop("Invalid state specified") #Confirming supplied states are valid
       
-      geo_dict$state<-as.character(as.numeric(geo_dict$state))
-      
-      geo_dict$labels<-word(geo_dict$labels,1,sep="/")
-      
-      if (length(intersect(geo_dict$labels, region_select))==0) stop("Invalid state specified")
-      
+      #Capturing FIPS codes
       selected_geos<-geo_dict[(geo_dict$labels %in% region_select),]$state
     }
+    
+  #Handling region case
   } else if (geo_level=="region") {
+    #Reading in region variable metadata    
     metadata_geo<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/REGION.json"))
     
+    #Capturing the region codes and labels
+    geo_dict<-data.frame(region=unlist(names(metadata_geo$values$item)),
+                          labels=unlist(metadata_geo$values$item,use.names=FALSE))    
+
+    #When region subset specified, capturing corresponding codes for GET URL    
     if (!is.null(region_select)) {
-      geo_dict<-data.frame(region=unlist(names(metadata_geo$values$item)),
-                           labels=unlist(metadata_geo$values$item,use.names=FALSE))
-      
-      if (length(intersect(geo_dict$labels, region_select))==0) stop("Invalid region specified")
-      
+      if (length(intersect(geo_dict$labels, region_select))==0) 
+        stop("Invalid region specified") #Confirming supplied regions are valid
+
+      #Capturing region codes      
       selected_geos<-geo_dict[(geo_dict$labels %in% region_select),]$region
-    }    
+    } 
+    
+  #Handling division case
   } else if (geo_level=="division") {
+    #Reading in division variable metadata
     metadata_geo<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/DIVISION.json"))
     
+    #Capturing the division codes and labels
+    geo_dict<-data.frame(division=unlist(names(metadata_geo$values$item)),
+                          labels=unlist(metadata_geo$values$item,use.names=FALSE))
+    
+    #Stripping labels down to only division names (Also indicates corresponding region for 2021:2023)  
+    geo_dict$labels<-word(geo_dict$labels,1,sep=fixed(" ("))       
+
+    #When division subset specified, capturing corresponding codes for GET URL
     if (!is.null(region_select)) {
-      geo_dict<-data.frame(division=unlist(names(metadata_geo$values$item)),
-                           labels=unlist(metadata_geo$values$item,use.names=FALSE))
+      if (length(intersect(geo_dict$labels, region_select))==0) 
+        stop("Invalid division specified") #Confirming supplied divisions are valid
       
-      geo_dict$labels<-word(geo_dict$labels,1,sep=fixed(" ("))      
-      
-      if (length(intersect(geo_dict$labels, region_select))==0) stop("Invalid division specified")
-      
+      #Capturing division codes
       selected_geos<-geo_dict[(geo_dict$labels %in% region_select),]$division
     }    
   }
   
-  #Building the URL
-  if (geo_level=="all") { #Case where all is the specified geography
+  
+  
+  
+  #BUILDING THE URL AND MAKING API CALL
+  
+  #Building the URL when all is the specified geography
+  if (geo_level=="all") { 
     URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","))
-  } else if (is.null(region_select)) { #Case where another geography is specified and no specific regions are selected
+  #Building URL when another geography is specified and no specific regions are selected
+  } else if (is.null(region_select)) { 
     URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level,":*")
-  } else { #Case where a subset of regions is specified
+  #Building URL when a subset of regions is specified
+  } else { 
     URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level,":",paste(selected_geos,collapse=","))
   }
   
+  #Making API Call
   response<-GET(URL)
   
+  
+  
+  #INITIAL DATA CLEANING
+  
+  #Applying content_cleaner helper function
   clean_response<-content_cleaner(response)
   
+  #Specifying potential truly numeric variable selections
   num_options<-c("AGEP","GASP","GRPIP","JWMNP")
  
   clean_response<- clean_response |>

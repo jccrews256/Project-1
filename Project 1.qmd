@@ -101,7 +101,7 @@ test_tbl
 
 It looks like our function worked!
 
-# A Function to Query Census API and Clean Data
+# A Function to Query the PUMS Census API and Clean Data
 
 We still face the issue that our data aren't as informative as they could be. Also, it would be nice to be able to change our request and still have the resulting tibble be an informative and useful dataset. 
 

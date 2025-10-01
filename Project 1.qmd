@@ -7,10 +7,18 @@ editor: visual
 
 # Introduction
 
+The Public Use Microdata Samples (PUMS) from the Census Bureau provide deep insights into the socio-demographic characteristics of US residents. With a few caveats, the samples contain the individual responses the the American Community Survey, giving researchers direct access to the lived experience of one percent of the US residents each year. 
+
+While the data are incredibly valuable to understanding American life and its evolution, they are not particularly easy to work with. In its raw form, each annual dataset is very large and difficult to interpret. This page begins by describing the process of obtaining the data via the PUMS Census API before transitioning to the creation of a function that reads in and cleans user-specified subsets of an annual PUMS dataset. Finally, the page details the creation of a wrapper for this function that combines multiple years of cleaned data. As we proceed down the page, examples will be provided to highlight the outcomes of our work. 
+
 # Loading in key packages
 
+Before we begin, we need to load required packages. I have printed them below, but I have suppressed all messages and warning to preserve the tidyness of the page. After all, we are utilizing the `tidyverse`! 
+
 ```{r}
-#| results: "hide"
+#| message: FALSE
+#| warning: FALSE
+#Loading required packages
 library(tidyverse)
 library(httr)
 library(jsonlite)
@@ -21,7 +29,7 @@ library(hms)
 
 # Understanding the Census API
 
-To obtain PUMS data via the Census API, we can take the standard approach of using `httr::GET()` and determining the correct URL structure to obtain the data we want. 
+To obtain PUMS data via the API, we can take the standard approach of using `httr::GET()` and determining the correct URL structure to obtain the data we want. 
 
 As an example, we may want to obtain educational attainment for survey respondents living in Alabama in 2022. Let's break down the corresponding URL:
 
@@ -32,23 +40,28 @@ The portion of the URL up to the "`?`" (`https://api.census.gov/data/2022/acs/ac
 Let's use `GET()` to read in our data and see what we get. 
 
 ```{r}
+#Making a standard API call
 example_data<-GET("https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL,AGEP&for=state:01")
 
+#Printing the high-level structure of the response
 str(example_data,max.level=1)
 ```
 
 There is a lot of information returned by the Census API, but what we actually want is the raw, currently uninterpretable information in `example_data$content`. To extract these data in a usable form, we can combine the `rawToChar()` function, which will convert the raw data to human-interpretable data, with the `fromJSON()` function from the `jsonlite` package, which will convert our data to a data frame. As a final step, we can coerce our data to a tibble. This will result in cleaner printing. 
 
 ```{r}
+#Converting the data/content to a matrix
 example_mat<-fromJSON(rawToChar(example_data$content))
 
+#Assigning column names, which are in the first row
 colnames(example_mat)<-example_mat[1,]
-
 example_mat<-example_mat[-1,]
 
+#Converting to tibble and converting PWGTP to a numeric variable
 example_tbl<-as_tibble(example_mat) |>
   mutate(PWGTP=as.numeric(PWGTP))
 
+#Printing the tibble
 example_tbl
 ```
 
@@ -57,17 +70,20 @@ This is still not particularly useful as educational attainment (`SCHL`) is a fa
 Additionally, it would be nice to not need to write out all the code to complete all the post-`GET` processing each time we make an API call. To deal with this issue, let's write a helper function that completes the data processing for us. 
 
 ```{r}
+#Creating an API response cleaner "helper" function
 content_cleaner<-function(response) {
+  #Capturing the data in a matrix
   mat<-fromJSON(rawToChar(response$content))
-
-  colnames(mat)<-mat[1,]
   
+  #Assigning column names (in the first row)
+  colnames(mat)<-mat[1,]
   mat<-mat[-1,]
   
-  tbl<-as_tibble(mat)
-  
-  tbl$PWGTP<-as.numeric(tbl$PWGTP)
-  
+  #Converting to a tibble and converting PWGTP to numeric
+  tbl<-as_tibble(mat) |>
+    mutate(PWGTP=as.numeric(PWGTP))
+
+  #Returning the tibble
   return(tbl)
 }
 ```
@@ -75,8 +91,10 @@ content_cleaner<-function(response) {
 That should speed up the process. Let's test the function on our original API response to ensure it works.
 
 ```{r}
+#Applying the helper function to our initial API response
 test_tbl<-content_cleaner(example_data)
 
+#Printing the resulting tibble
 test_tbl
 ```
 
@@ -125,6 +143,7 @@ In addition to the optional variables, `PWGTP`, the number of individuals each o
 Readers are encouraged to review the `get_census()` function code for full details on function behavior. We will summarize the function steps below the code chunk. 
 
 ```{r}
+#Constructing our main data requesting and cleaning function
 census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_select="Arizona") {
 
   ##############################################################################  
@@ -374,9 +393,11 @@ Third, the data are cleaned and returned. Data cleaning has the following sub-st
 Now that we have the function and generally know how it works, let's test it. To start, let's again request educational attainment and age for individuals from Alabama in the 2022 survey. 
 
 ```{r}
+#Testing the function for the first time
 first_tbl<-census_get(year=2022,catvar=c("SCHL"),numvar=c("AGEP"),
                           geo_level="state",geo_select="Alabama")
 
+#Printing the results
 first_tbl
 ```
 
@@ -385,8 +406,10 @@ This is much better! Age is now numeric, educational attainment is easily interp
 Let's keep testing the function by confirming our default inputs evaluate correctly. 
 
 ```{r}
+#Testing the function with the default inputs
 second_tbl<-census_get()
 
+#Printing the resulting tibble
 second_tbl
 ```
 
@@ -395,18 +418,21 @@ This is exactly what we expected, so it looks like we correctly specified the de
 Now let's see how one of the time variables display by adding `JWAP` to the request. When we print the resulting tibble, let's subset the data to only the individuals who provided a time they arrive at work. 
 
 ```{r}
+#Testing the function when a time variable is included
 third_tbl<-census_get(numvar=c("AGEP","JWAP"))
 
+#Printing the tibble after subsetting to observations with non-missing time values
 third_tbl |> 
   filter(!is.na(JWAP))
 ```
 
 Again, this looks great. Not only do we have cleanly displayed times, but we have data we can analyze to understand the distribution of arrival times. 
 
-As a final set of checks, let's intentionally make mistakes in our inputs to see how our error messages present.First, let's see what happens when we request a numeric variable that is not available. 
+As a final set of checks, let's intentionally make mistakes in our inputs to see how our error messages present. First, let's see what happens when we request a numeric variable that is not available. 
 
 ```{r}
 #| error: true
+#Demonstrating what happens when we misspecify a numeric variable
 non_created_tbl1<-census_get(numvar="DOG")
 ```
 
@@ -416,6 +442,7 @@ Now let's see what happens when we request data for a state that isn't actually 
 
 ```{r}
 #| error: true
+#Demonstrating what happens when we misspecify the geography to subset to
 non_created_tbl2<-census_get(geo_select="Cat")
 ```
 
@@ -429,6 +456,7 @@ We have created a very helpful function. However, it is often the case that our 
 The arguments and defaults for this `census_get_multiyear` function will be identical to those of the `census_get` function, except that `year` is now `years`; `years` accepts a vector of valid year values, and its default is `2021:2022`. To indicate the year an observation corresponds to, the function will include a `year` variable. 
 
 ```{r}
+#Creating the census_get wrapper function
 census_get_multiyear<-function(years=2021:2022,numvar="AGEP",catvar="SEX",
                                geo_level="state",geo_select="Arizona") {
   
@@ -451,8 +479,11 @@ census_get_multiyear<-function(years=2021:2022,numvar="AGEP",catvar="SEX",
     } else {
       int_data<-census_get(year=y,catvar=catvar,numvar=numvar,geo_level=geo_level,
                            geo_select=geo_select)
+      
+      #Capturing year of data
       int_data$year<-y
       
+      #Appending to the existing dataset
       data<-bind_rows(data,int_data)
     }
     counter<-counter+1 #Updating counter for if/else 
@@ -466,11 +497,14 @@ census_get_multiyear<-function(years=2021:2022,numvar="AGEP",catvar="SEX",
 We can test the function to ensure it works as intends. First, let's request the recent birth indicator for individuals living in the Mountain census division in 2016 and 2023. We will produce two different filtered prints to ensure we obtain both years of data; we filter to each year and keep only females. We might request these data if we wanted to analyze changes in birth rates. 
 
 ```{r}
+#Testing the wrapper for the first time
 first_multiyr_tbl<-census_get_multiyear(years=c(2016,2023),catvar=c("FER","SEX"),geo_level="division",geo_select="Mountain")
 
+#Printing the results when year is 2016 and sex is female
 first_multiyr_tbl |> 
   filter(year==2016,SEX=="Female")
 
+#Printing the results when year is 2016 and sex is female
 first_multiyr_tbl |>
   filter(year==2023,SEX=="Female")
 ```
@@ -481,6 +515,7 @@ As a final check, let's see what happens when we request a year outside the avai
 
 ```{r}
 #| error: true
+#Testing the function when we include an invalid year
 non_created_multiyr_tbl<-census_get_multiyear(years=c(2016,2024),catvar=c("FER","SEX"),geo_level="division",geo_select="Mountain")
 ```
 

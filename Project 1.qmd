@@ -10,7 +10,7 @@ editor: visual
 # Loading in key packages
 
 ```{r}
-#| results: hide
+#| results: "hide"
 library(tidyverse)
 library(httr)
 library(jsonlite)
@@ -94,7 +94,7 @@ To solve these current limitations, let's build a comprehensive query function t
 - Specify a geography level to report
 - Optionally subset the data to specific geographies within the specified geography level
 
-The resultant `census_get()` function is documented in the code chunk below. Note that there are five parameters consistent with our goals for the function:
+The resultant `census_get()` function is documented in the code chunk below. Note that there are five arguments consistent with our goals for the function:
 
 - `year`: The survey year we want to obtain data from, which cannot be `NULL` or multiple years
   - Valid Inputs are any year from 2010 to 2023, excluding 2020; default is 2022

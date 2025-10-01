@@ -41,7 +41,8 @@ Let's use `GET()` to read in our data and see what we get.
 
 ```{r}
 #Making a standard API call
-example_data<-GET("https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL,AGEP&for=state:01")
+example_data<-
+  GET("https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL,AGEP&for=state:01")
 
 #Printing the high-level structure of the response
 str(example_data,max.level=1)
@@ -144,32 +145,44 @@ Readers are encouraged to review the `get_census()` function code for full detai
 
 ```{r}
 #Constructing our main data requesting and cleaning function
-census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_select="Arizona") {
+census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",
+                     geo_select="Arizona") {
 
   ##############################################################################  
   #CHECKING USER INPUTS
   ##############################################################################
   
+  #Confirming year input
   if (!(year %in% c(2010:2019,2021:2023))) 
-    stop("year must be between 2010 and 2023, and must not be 2020") #Confirming year input
+    stop("year must be between 2010 and 2023, and must not be 2020") 
+  #Confirming JWTRNS not requested prior to 2019
   if (year< 2019 & ("JWTRNS" %in% catvar)) 
-    stop("JWTRNS unavailable prior to 2019") #Confirming JWTRNS not requested prior to 2019
+    stop("JWTRNS unavailable prior to 2019") 
+  #Confirming HISPEED not requested prior to 2016
   if (year< 2016 & ("HISPEED" %in% catvar)) 
-    stop("HISPEED unavailable prior to 2016") #Confirming HISPEED not requested prior to 2016
+    stop("HISPEED unavailable prior to 2016") 
+  #Confirming numvar not set to NULL
   if (is.null(numvar)) 
-    stop("At least one numeric variable must be selected") #Confirming numvar not set to NULL
+    stop("At least one numeric variable must be selected") 
+  #Confirming all numvar inputs are valid
   if(length(setdiff(numvar,c("AGEP","GASP","GRPIP","JWMNP","JWAP","JWDP")))> 0) 
-    stop("At least one numeric variable not allowed") #Confirming all numvar inputs are valid
+    stop("At least one numeric variable not allowed") 
+  #Confirming catvar not set to NULL
   if (is.null(catvar)) 
-    stop("At least one categorical variable must be selected") #Confirming catvar not set to NULL
-  if(length(setdiff(catvar,c("FER", "HHL", "HISPEED", "JWTRNS", "SCH", "SCHL", "SEX")))> 0) 
-    stop("At least one categorical variable not allowed") #Confirming all catvar inputs are valid
+    stop("At least one categorical variable must be selected") 
+  #Confirming all catvar inputs are valid
+  if(length(setdiff(catvar,c("FER", "HHL", "HISPEED", "JWTRNS", "SCH",
+                             "SCHL", "SEX")))> 0) 
+    stop("At least one categorical variable not allowed") 
+  #Confirming only one geo level specified
   if (length(geo_level)> 1) 
-    stop("No more than one geographic level allowed") #Confirming only one geo level specified
+    stop("No more than one geographic level allowed") 
+  #Confirming geo_level not set to NULL
   if (is.null(geo_level)) 
-    stop("Must specify a geographic level") #Confirming geo_level not set to NULL
+    stop("Must specify a geographic level") 
+  #Confirming geo_level input is valid
   if (length(intersect(geo_level,c("all","region","division","state")))==0) 
-    stop("Invalid geography level") #Confirming geo_level input is valid
+    stop("Invalid geography level") 
 
   
   ##############################################################################
@@ -182,7 +195,8 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   if (geo_level=="state") {
     #Reading in state variable metadata
     ##Using 2022 as metadata not provided in all years
-    metadata_geo<-read_json(paste0("https://api.census.gov/data/2022/acs/acs1/pums/variables/ST.json"))
+    metadata_geo<-
+      read_json(paste0("https://api.census.gov/data/2022/acs/acs1/pums/variables/ST.json"))
     
     #Capturing state fips codes and labels
     geo_dict<-data.frame(state=unlist(names(metadata_geo$values$item)),
@@ -191,7 +205,8 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
     #Removing leading zeros to protect against code format changes across years  
     geo_dict$state<-as.character(as.numeric(geo_dict$state))
     
-    #Stripping labels down to only state names (originally include postal abbreviations)  
+    #Stripping labels down to only state names 
+    #(originally include postal abbreviations)  
     geo_dict$labels<-word(geo_dict$labels,1,sep="/")
     
     #When state subset specified, capturing corresponding FIPS codes for GET URL
@@ -232,7 +247,8 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
     geo_dict<-data.frame(division=unlist(names(metadata_geo$values$item)),
                           labels=unlist(metadata_geo$values$item,use.names=FALSE))
     
-    #Stripping labels down to only division names (Also indicates corresponding region for 2021:2023)  
+    #Stripping labels down to only division names 
+    #(Also indicates corresponding region for 2021:2023)  
     geo_dict$labels<-word(geo_dict$labels,1,sep=fixed(" ("))       
 
     #When division subset specified, capturing corresponding codes for GET URL
@@ -252,7 +268,8 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   if (geo_level=="all") { 
     URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",
                 paste(numvar,collapse=","),",",paste(catvar,collapse=","))
-  #Building URL when another geography is specified and no specific regions are selected
+  #Building URL when another geography is specified and no specific regions 
+    #are selected
   } else if (is.null(geo_select)) { 
     URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",
                 paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",
@@ -318,7 +335,8 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
     #Assigning endpoint names
     names(value_dict)[3:4]<-c("time_1","time_2")
     
-    #Calculating midpoint between time endpoints and producing clean time value dictionary
+    #Calculating midpoint between time endpoints and producing clean time 
+    #value dictionary
     value_dict<- value_dict |>
       mutate(secs_1=as.numeric(time_1),
              secs_2=as.numeric(time_2),
@@ -345,7 +363,8 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
                                    "/acs/acs1/pums/variables/",c,".json"))
     
     #Using metadata (codes and labels) to convert categorical variables to factors
-    clean_response[c]<-factor(clean_response[[c]],levels=unlist(names(metadata_cat$values$item)),
+    clean_response[c]<-factor(clean_response[[c]],
+                              levels=unlist(names(metadata_cat$values$item)),
                               labels=unlist(metadata_cat$values$item,use.names=FALSE))
   }
   
@@ -354,7 +373,8 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   
   #Stripping leading zeroes from state FIPS codes to match codes with labels 
   #captured above in geo_dict
-  if (geo_level=="state") clean_response$state<-as.character(as.numeric(clean_response$state))
+  if (geo_level=="state") 
+    clean_response$state<-as.character(as.numeric(clean_response$state))
   
   #Replacing geography codes with geography names
   if (geo_level!="all") {
@@ -368,16 +388,17 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   #MISSING VALUE HANDLING AND RETURN SPECIFICATION##############################
   
   #Changing truly missing values to missing
+  #The second mutate Handles variations in NA coding across years
   clean_response<- clean_response |>
     mutate(across(any_of(c("GRPIP","JWMNP")),~na_if(.x,0))) |>
-    mutate(across(any_of("GASP"),~if_else(.x<=3,NA_real_,.x))) #Handles variations in NA coding across years
+    mutate(across(any_of("GASP"),~if_else(.x<=3,NA_real_,.x))) 
   
   #Indicating we want to return the processed dataset
   return(clean_response)
 }
 ```
 
-The function achieves our goals via the following general steps. First, the user inputs are thoroughly evaluated to ensure no required inputs are `NULL` and all specifications for `year`, `numvar`, `catvar`, `geo_level`, and `geo_select` are valid options. When mistakes are made, informative error messages are given to the user understands their mistake. 
+The function achieves our goals via the following general steps. First, the user inputs are thoroughly evaluated to ensure no required inputs are `NULL` and all specifications for `year`, `numvar`, `catvar`, `geo_level`, and `geo_select` are valid options. When mistakes are made, informative error messages are given so the user understands their mistake. 
 
 Second, the appropriate URL is constructed and the API call is made. This involves converting any `geo_select` inputs to the numeric codes the API can interpret, as well as incorporating the correct year and variable names into the URL. 
 
@@ -498,7 +519,8 @@ We can test the function to ensure it works as intends. First, let's request the
 
 ```{r}
 #Testing the wrapper for the first time
-first_multiyr_tbl<-census_get_multiyear(years=c(2016,2023),catvar=c("FER","SEX"),geo_level="division",geo_select="Mountain")
+first_multiyr_tbl<-census_get_multiyear(years=c(2016,2023),catvar=c("FER","SEX"),
+                                        geo_level="division",geo_select="Mountain")
 
 #Printing the results when year is 2016 and sex is female
 first_multiyr_tbl |> 
@@ -516,7 +538,10 @@ As a final check, let's see what happens when we request a year outside the avai
 ```{r}
 #| error: true
 #Testing the function when we include an invalid year
-non_created_multiyr_tbl<-census_get_multiyear(years=c(2016,2024),catvar=c("FER","SEX"),geo_level="division",geo_select="Mountain")
+non_created_multiyr_tbl<-census_get_multiyear(years=c(2016,2024),
+                                          catvar=c("FER","SEX"),
+                                          geo_level="division",
+                                          geo_select="Mountain")
 ```
 
 This worked exactly as we wanted: the function returned an error before wasting time submitting inputs to `census_get`. 

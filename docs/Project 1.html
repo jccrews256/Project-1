@@ -146,7 +146,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>While the data are incredibly valuable to understanding American life and its evolution, they are not particularly easy to work with. In its raw form, each annual dataset is very large and difficult to interpret. The goal of this page is to document an automated process for obtaining and processing subsets of the data, unlocking the power of the data for researchers. We begin by describing the process of obtaining the data via the PUMS Census application programming interface (API) before transitioning to the creation of a function that reads in and cleans user-specified subsets of an annual PUMS dataset. Finally, we detail the creation of a wrapper for this function that combines multiple years of cleaned data. As we proceed down the page, examples will be provided to highlight the outcomes of our work.</p>
 </section>
 <section id="loading-in-key-packages" class="level1">
-<h1>Loading in key packages</h1>
+<h1>Loading in Key Packages</h1>
 <p>Before we begin, we need to load required packages. I have printed them below, but I have suppressed all messages and warnings to preserve the tidyness of the page. After all, we are utilizing the <code>tidyverse</code>!</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Loading required packages</span></span>
@@ -183,8 +183,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
  $ all_headers:List of 1
  $ cookies    :'data.frame':    1 obs. of  7 variables:
  $ content    : raw [1:1189366] 5b 5b 22 50 ...
- $ date       : POSIXct[1:1], format: "2025-10-01 23:03:27"
- $ times      : Named num [1:6] 0 0.036 0.0842 0.2001 0.6194 ...
+ $ date       : POSIXct[1:1], format: "2025-10-01 23:17:59"
+ $ times      : Named num [1:6] 0 0.0472 0.0972 0.218 0.6086 ...
   ..- attr(*, "names")= chr [1:6] "redirect" "namelookup" "connect" "pretransfer" ...
  $ request    :List of 7
   ..- attr(*, "class")= chr "request"
@@ -211,16 +211,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre><code># A tibble: 51,580 × 4
    PWGTP SCHL  AGEP  state
    &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;
- 1    21 14    81    01   
- 2   313 22    79    01   
- 3    70 16    55    01   
- 4    88 16    45    01   
- 5   161 16    46    01   
- 6    23 20    37    01   
- 7    29 21    54    01   
- 8    29 19    28    01   
- 9    35 16    30    01   
-10    71 20    93    01   
+ 1    69 19    85    01   
+ 2    22 17    51    01   
+ 3    45 11    36    01   
+ 4     4 1     74    01   
+ 5    47 19    49    01   
+ 6    38 17    31    01   
+ 7    13 19    76    01   
+ 8    38 13    60    01   
+ 9    66 14    35    01   
+10    31 16    72    01   
 # ℹ 51,570 more rows</code></pre>
 </div>
 </div>
@@ -255,16 +255,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre><code># A tibble: 51,580 × 4
    PWGTP SCHL  AGEP  state
    &lt;dbl&gt; &lt;chr&gt; &lt;chr&gt; &lt;chr&gt;
- 1    21 14    81    01   
- 2   313 22    79    01   
- 3    70 16    55    01   
- 4    88 16    45    01   
- 5   161 16    46    01   
- 6    23 20    37    01   
- 7    29 21    54    01   
- 8    29 19    28    01   
- 9    35 16    30    01   
-10    71 20    93    01   
+ 1    69 19    85    01   
+ 2    22 17    51    01   
+ 3    45 11    36    01   
+ 4     4 1     74    01   
+ 5    47 19    49    01   
+ 6    38 17    31    01   
+ 7    13 19    76    01   
+ 8    38 13    60    01   
+ 9    66 14    35    01   
+10    31 16    72    01   
 # ℹ 51,570 more rows</code></pre>
 </div>
 </div>
@@ -391,7 +391,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a>    }</span>
 <span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a>    </span>
 <span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a>    <span class="co">#Removing leading zeroes to protect against code format changes across years</span></span>
-<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a>    <span class="co">#We'll use this later! </span></span>
+<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a>    <span class="co">#Used later for state labeling </span></span>
 <span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a>    geo_dict<span class="sc">$</span>state<span class="ot">&lt;-</span><span class="fu">as.character</span>(<span class="fu">as.numeric</span>(geo_dict<span class="sc">$</span>state))</span>
 <span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a>    </span>
 <span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Handling region case</span></span>
@@ -548,30 +548,31 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-227"><a href="#cb9-227" aria-hidden="true" tabindex="-1"></a>  <span class="co">#GEOGRAPHIC VARIABLE PROCESSING###############################################</span></span>
 <span id="cb9-228"><a href="#cb9-228" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb9-229"><a href="#cb9-229" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Stripping leading zeroes from state FIPS codes to match codes with labels </span></span>
-<span id="cb9-230"><a href="#cb9-230" aria-hidden="true" tabindex="-1"></a>  <span class="co">#captured above in geo_dict</span></span>
-<span id="cb9-231"><a href="#cb9-231" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (geo_level<span class="sc">==</span><span class="st">"state"</span>) </span>
-<span id="cb9-232"><a href="#cb9-232" aria-hidden="true" tabindex="-1"></a>    clean_response<span class="sc">$</span>state<span class="ot">&lt;-</span><span class="fu">as.character</span>(<span class="fu">as.numeric</span>(clean_response<span class="sc">$</span>state))</span>
-<span id="cb9-233"><a href="#cb9-233" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb9-234"><a href="#cb9-234" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Replacing geography codes with geography names</span></span>
-<span id="cb9-235"><a href="#cb9-235" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (geo_level<span class="sc">!=</span><span class="st">"all"</span>) {</span>
-<span id="cb9-236"><a href="#cb9-236" aria-hidden="true" tabindex="-1"></a>    clean_response<span class="ot">&lt;-</span> clean_response <span class="sc">|&gt;</span></span>
-<span id="cb9-237"><a href="#cb9-237" aria-hidden="true" tabindex="-1"></a>      <span class="fu">left_join</span>(geo_dict,<span class="at">by=</span>geo_level) <span class="sc">|&gt;</span></span>
-<span id="cb9-238"><a href="#cb9-238" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(<span class="sc">!!</span><span class="at">geo_level :=</span> labels) <span class="sc">|&gt;</span></span>
-<span id="cb9-239"><a href="#cb9-239" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(<span class="sc">-</span>labels)    </span>
-<span id="cb9-240"><a href="#cb9-240" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb9-241"><a href="#cb9-241" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb9-242"><a href="#cb9-242" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-243"><a href="#cb9-243" aria-hidden="true" tabindex="-1"></a>  <span class="co">#MISSING VALUE HANDLING AND RETURN SPECIFICATION##############################</span></span>
-<span id="cb9-244"><a href="#cb9-244" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb9-245"><a href="#cb9-245" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Changing truly missing values to missing</span></span>
-<span id="cb9-246"><a href="#cb9-246" aria-hidden="true" tabindex="-1"></a>  <span class="co">#The second mutate Handles variations in NA coding across years</span></span>
-<span id="cb9-247"><a href="#cb9-247" aria-hidden="true" tabindex="-1"></a>  clean_response<span class="ot">&lt;-</span> clean_response <span class="sc">|&gt;</span></span>
-<span id="cb9-248"><a href="#cb9-248" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">any_of</span>(<span class="fu">c</span>(<span class="st">"GRPIP"</span>,<span class="st">"JWMNP"</span>)),<span class="sc">~</span><span class="fu">na_if</span>(.x,<span class="dv">0</span>))) <span class="sc">|&gt;</span></span>
-<span id="cb9-249"><a href="#cb9-249" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">any_of</span>(<span class="st">"GASP"</span>),<span class="sc">~</span><span class="fu">if_else</span>(.x<span class="sc">&lt;=</span><span class="dv">3</span>,<span class="cn">NA_real_</span>,.x))) </span>
-<span id="cb9-250"><a href="#cb9-250" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb9-251"><a href="#cb9-251" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Indicating we want to return the processed dataset</span></span>
-<span id="cb9-252"><a href="#cb9-252" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(clean_response)</span>
-<span id="cb9-253"><a href="#cb9-253" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb9-230"><a href="#cb9-230" aria-hidden="true" tabindex="-1"></a>  <span class="co">#captured above in geo_dict; done to conform with code formatting changes</span></span>
+<span id="cb9-231"><a href="#cb9-231" aria-hidden="true" tabindex="-1"></a>  <span class="co">#across years</span></span>
+<span id="cb9-232"><a href="#cb9-232" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (geo_level<span class="sc">==</span><span class="st">"state"</span>) </span>
+<span id="cb9-233"><a href="#cb9-233" aria-hidden="true" tabindex="-1"></a>    clean_response<span class="sc">$</span>state<span class="ot">&lt;-</span><span class="fu">as.character</span>(<span class="fu">as.numeric</span>(clean_response<span class="sc">$</span>state))</span>
+<span id="cb9-234"><a href="#cb9-234" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-235"><a href="#cb9-235" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Replacing geography codes with geography names</span></span>
+<span id="cb9-236"><a href="#cb9-236" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (geo_level<span class="sc">!=</span><span class="st">"all"</span>) {</span>
+<span id="cb9-237"><a href="#cb9-237" aria-hidden="true" tabindex="-1"></a>    clean_response<span class="ot">&lt;-</span> clean_response <span class="sc">|&gt;</span></span>
+<span id="cb9-238"><a href="#cb9-238" aria-hidden="true" tabindex="-1"></a>      <span class="fu">left_join</span>(geo_dict,<span class="at">by=</span>geo_level) <span class="sc">|&gt;</span></span>
+<span id="cb9-239"><a href="#cb9-239" aria-hidden="true" tabindex="-1"></a>      <span class="fu">mutate</span>(<span class="sc">!!</span><span class="at">geo_level :=</span> labels) <span class="sc">|&gt;</span></span>
+<span id="cb9-240"><a href="#cb9-240" aria-hidden="true" tabindex="-1"></a>      <span class="fu">select</span>(<span class="sc">-</span>labels)    </span>
+<span id="cb9-241"><a href="#cb9-241" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb9-242"><a href="#cb9-242" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-243"><a href="#cb9-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-244"><a href="#cb9-244" aria-hidden="true" tabindex="-1"></a>  <span class="co">#MISSING VALUE HANDLING AND RETURN SPECIFICATION##############################</span></span>
+<span id="cb9-245"><a href="#cb9-245" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-246"><a href="#cb9-246" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Changing truly missing values to missing</span></span>
+<span id="cb9-247"><a href="#cb9-247" aria-hidden="true" tabindex="-1"></a>  <span class="co">#The second mutate Handles variations in NA coding across years</span></span>
+<span id="cb9-248"><a href="#cb9-248" aria-hidden="true" tabindex="-1"></a>  clean_response<span class="ot">&lt;-</span> clean_response <span class="sc">|&gt;</span></span>
+<span id="cb9-249"><a href="#cb9-249" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">any_of</span>(<span class="fu">c</span>(<span class="st">"GRPIP"</span>,<span class="st">"JWMNP"</span>)),<span class="sc">~</span><span class="fu">na_if</span>(.x,<span class="dv">0</span>))) <span class="sc">|&gt;</span></span>
+<span id="cb9-250"><a href="#cb9-250" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">any_of</span>(<span class="st">"GASP"</span>),<span class="sc">~</span><span class="fu">if_else</span>(.x<span class="sc">&lt;=</span><span class="dv">3</span>,<span class="cn">NA_real_</span>,.x))) </span>
+<span id="cb9-251"><a href="#cb9-251" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-252"><a href="#cb9-252" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Indicating we want to return the processed dataset</span></span>
+<span id="cb9-253"><a href="#cb9-253" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(clean_response)</span>
+<span id="cb9-254"><a href="#cb9-254" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>The function achieves our goals via the following general steps. First, the user inputs are thoroughly evaluated to ensure no required inputs are <code>NULL</code> and all specifications for <code>year</code>, <code>numvar</code>, <code>catvar</code>, <code>geo_level</code>, and <code>geo_select</code> are valid options. When mistakes are made, informative error messages are given so the user understands their mistake.</p>
 <p>Second, the appropriate URL is constructed and the API call is made. This involves converting any <code>geo_select</code> inputs to the numeric codes the API can interpret, as well as incorporating the correct year and variable names into the URL.</p>
@@ -647,16 +648,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre><code># A tibble: 8,165 × 5
    PWGTP  AGEP JWAP   SEX    state  
    &lt;dbl&gt; &lt;dbl&gt; &lt;time&gt; &lt;fct&gt;  &lt;chr&gt;  
- 1   104    69 11:42  Male   Arizona
- 2    30    42 08:32  Male   Arizona
- 3    81    70 08:47  Male   Arizona
- 4   235    20 10:32  Female Arizona
- 5    67    39 10:02  Female Arizona
- 6    90    60 08:32  Female Arizona
- 7   407    33 08:02  Male   Arizona
- 8   118    54 09:17  Female Arizona
- 9    59    40 10:02  Female Arizona
-10   106    55 09:52  Male   Arizona
+ 1    59    21 03:52  Female Arizona
+ 2     7    27 01:22  Male   Arizona
+ 3    57    22 03:52  Male   Arizona
+ 4     6    32 10:22  Female Arizona
+ 5    13    33 10:02  Male   Arizona
+ 6    51    18 04:02  Female Arizona
+ 7    16    17 03:17  Male   Arizona
+ 8    85    31 08:32  Male   Arizona
+ 9    31    27 01:22  Male   Arizona
+10    61    19 02:02  Male   Arizona
 # ℹ 8,155 more rows</code></pre>
 </div>
 </div>

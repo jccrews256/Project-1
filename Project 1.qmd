@@ -11,7 +11,7 @@ The Public Use Microdata Samples (PUMS) from the Census Bureau provide deep insi
 
 While the data are incredibly valuable to understanding American life and its evolution, they are not particularly easy to work with. In its raw form, each annual dataset is very large and difficult to interpret. The goal of this page is to document an automated process for obtaining and processing subsets of the data, unlocking the power of the data for researchers. We begin by describing the process of obtaining the data via the PUMS Census application programming interface (API) before transitioning to the creation of a function that reads in and cleans user-specified subsets of an annual PUMS dataset. Finally, we detail the creation of a wrapper for this function that combines multiple years of cleaned data. As we proceed down the page, examples will be provided to highlight the outcomes of our work. 
 
-# Loading in key packages
+# Loading in Key Packages
 
 Before we begin, we need to load required packages. I have printed them below, but I have suppressed all messages and warnings to preserve the tidyness of the page. After all, we are utilizing the `tidyverse`! 
 
@@ -218,7 +218,7 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",
     }
     
     #Removing leading zeroes to protect against code format changes across years
-    #We'll use this later! 
+    #Used later for state labeling 
     geo_dict$state<-as.character(as.numeric(geo_dict$state))
     
   #Handling region case
@@ -375,7 +375,8 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",
   #GEOGRAPHIC VARIABLE PROCESSING###############################################
   
   #Stripping leading zeroes from state FIPS codes to match codes with labels 
-  #captured above in geo_dict
+  #captured above in geo_dict; done to conform with code formatting changes
+  #across years
   if (geo_level=="state") 
     clean_response$state<-as.character(as.numeric(clean_response$state))
   

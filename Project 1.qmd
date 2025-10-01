@@ -1,5 +1,5 @@
 ---
-title: "Project 1: Functions"
+title: "Project 1: Functions for Census Bureau Public Use Microdata Sample Processing"
 author: "Cass Crews"
 format: html
 editor: visual
@@ -7,13 +7,13 @@ editor: visual
 
 # Introduction
 
-The Public Use Microdata Samples (PUMS) from the Census Bureau provide deep insights into the socio-demographic characteristics of US residents. With a few caveats, the samples contain the individual responses the the American Community Survey, giving researchers direct access to the lived experience of one percent of the US residents each year. 
+The Public Use Microdata Samples (PUMS) from the Census Bureau provide deep insights into the socio-demographic characteristics of US residents. With a few caveats, the samples contain the individual responses from each American Community Survey, giving researchers direct access to the lived experience for one percent of US residents each year. 
 
-While the data are incredibly valuable to understanding American life and its evolution, they are not particularly easy to work with. In its raw form, each annual dataset is very large and difficult to interpret. This page begins by describing the process of obtaining the data via the PUMS Census API before transitioning to the creation of a function that reads in and cleans user-specified subsets of an annual PUMS dataset. Finally, the page details the creation of a wrapper for this function that combines multiple years of cleaned data. As we proceed down the page, examples will be provided to highlight the outcomes of our work. 
+While the data are incredibly valuable to understanding American life and its evolution, they are not particularly easy to work with. In its raw form, each annual dataset is very large and difficult to interpret. The goal of this page is to document an automated process for obtaining and processing subsets of the data, unlocking the power of the data for researchers. We begin by describing the process of obtaining the data via the PUMS Census application programming interface (API) before transitioning to the creation of a function that reads in and cleans user-specified subsets of an annual PUMS dataset. Finally, we detail the creation of a wrapper for this function that combines multiple years of cleaned data. As we proceed down the page, examples will be provided to highlight the outcomes of our work. 
 
 # Loading in key packages
 
-Before we begin, we need to load required packages. I have printed them below, but I have suppressed all messages and warning to preserve the tidyness of the page. After all, we are utilizing the `tidyverse`! 
+Before we begin, we need to load required packages. I have printed them below, but I have suppressed all messages and warnings to preserve the tidyness of the page. After all, we are utilizing the `tidyverse`! 
 
 ```{r}
 #| message: FALSE
@@ -29,13 +29,13 @@ library(hms)
 
 # Understanding the Census API
 
-To obtain PUMS data via the API, we can take the standard approach of using `httr::GET()` and determining the correct URL structure to obtain the data we want. 
+To obtain PUMS data via the API, we can take the standard approach of using `httr::GET()` and determining the correct URL structure to request the data we want. 
 
 As an example, we may want to obtain educational attainment for survey respondents living in Alabama in 2022. Let's break down the corresponding URL:
 
 > `https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL&for=state:01`
 
-The portion of the URL up to the "`?`" (`https://api.census.gov/data/2022/acs/acs1/pums`) indicates that we want data from the ACS 2022 1-year PUMS file. `get=PWGTP,SCHL,AGEP` indicates we want the person-level weights, which we will use when generating tabulations to ensure our tabulations are representative of the Alabama population, as well as individuals' educational attainment (`SCHL`) and age (`AGEP`). `for=state:01` indicates we only want data for Alabama. 
+The portion of the URL up to the `?` (`https://api.census.gov/data/2022/acs/acs1/pums`) indicates that we want data from the ACS 2022 1-year PUMS file. `get=PWGTP,SCHL,AGEP` indicates we want the person-level weights (`PWGTP`), which we will use when generating tabulations to ensure our tabulations are representative of the Alabama population, as well as individuals' educational attainment (`SCHL`) and age (`AGEP`). `for=state:01` indicates we only want data for Alabama. 
 
 Let's use `GET()` to read in our data and see what we get. 
 
@@ -48,7 +48,7 @@ example_data<-
 str(example_data,max.level=1)
 ```
 
-There is a lot of information returned by the Census API, but what we actually want is the raw, currently uninterpretable information in `example_data$content`. To extract these data in a usable form, we can combine the `rawToChar()` function, which will convert the raw data to human-interpretable data, with the `fromJSON()` function from the `jsonlite` package, which will convert our data to a data frame. As a final step, we can coerce our data to a tibble. This will result in cleaner printing. 
+There is a lot of information returned by the Census API, but what we actually want is the raw, currently uninterpretable information in `example_data$content`. To extract these data in a usable form, we can combine the `rawToChar()` function, which will convert the raw data to human-interpretable data, with the `fromJSON()` function from the `jsonlite` package, which will convert our data to a matrix. As a final step, we can coerce our data to a tibble. This will result in cleaner printing. 
 
 ```{r}
 #Converting the data/content to a matrix
@@ -66,7 +66,7 @@ example_tbl<-as_tibble(example_mat) |>
 example_tbl
 ```
 
-This is still not particularly useful as educational attainment (`SCHL`) is a factor variable; the values have explicit meaning. Similarly, the values of `state` are all `01` rather than `Alabama`. 
+This is still not particularly useful as educational attainment (`SCHL`) is a factor variable; the values are codes with explicit meaning. Similarly, the values of `state` are all `01` rather than `Alabama`. 
 
 Additionally, it would be nice to not need to write out all the code to complete all the post-`GET` processing each time we make an API call. To deal with this issue, let's write a helper function that completes the data processing for us. 
 
@@ -103,7 +103,7 @@ It looks like our function worked!
 
 # A Function to Query Census API and Clean Data
 
-we still face the issue that our data aren't as informative as they could be. Also, it would be nice to be able to change our request and still have the resulting tibble be an informative and useful dataset. 
+We still face the issue that our data aren't as informative as they could be. Also, it would be nice to be able to change our request and still have the resulting tibble be an informative and useful dataset. 
 
 To solve these current limitations, let's build a comprehensive query function that allows the user to do the following:
 
@@ -113,10 +113,12 @@ To solve these current limitations, let's build a comprehensive query function t
 - Specify a geography level to report
 - Optionally subset the data to specific geographies within the specified geography level
 
+Let's design the function so it returns a tibble that is informative and ready for analysis.
+
 The resultant `census_get()` function is documented in the code chunk below. Note that there are five arguments consistent with our goals for the function:
 
 - `year`: The survey year we want to obtain data from, which cannot be `NULL` or multiple years
-  - Valid Inputs are any year from 2010 to 2023, excluding 2020; default is 2022
+  - Valid Inputs are any year from 2010 to 2023, excluding 2020; the default is 2022
 - `numvar`: A vector indicating the numeric variables we want to return, which cannot be `NULL`. Available variables:
   - `AGEP`: The age of the individual in years; this variable is selected by default
   - `GASP`: Monthly gas cost in dollars
@@ -436,7 +438,7 @@ second_tbl
 
 This is exactly what we expected, so it looks like we correctly specified the defaults. 
 
-Now let's see how one of the time variables display by adding `JWAP` to the request. When we print the resulting tibble, let's subset the data to only the individuals who provided a time they arrive at work. 
+Now let's see how one of the time variables displays by adding `JWAP` to the request. When we print the resulting tibble, let's subset the data to only the individuals who provided a time they arrive at work. 
 
 ```{r}
 #Testing the function when a time variable is included
@@ -474,7 +476,7 @@ Now we know there is no US state named Cat. Good to know.
 
 We have created a very helpful function. However, it is often the case that our analysis requires multiple years of data, such as when we want to analyze changes in age distributions across time. Let's build a function that repeatedly deploys our `census_get` function for each year of data we request. 
 
-The arguments and defaults for this `census_get_multiyear` function will be identical to those of the `census_get` function, except that `year` is now `years`; `years` accepts a vector of valid year values, and its default is `2021:2022`. To indicate the year an observation corresponds to, the function will include a `year` variable. 
+The arguments and defaults for this `census_get_multiyear` function will be identical to those of the `census_get` function, except that `year` is now `years`; `years` accepts a vector of valid year values, and its default is `2021:2022`. To indicate the year an observation corresponds to, the function will include a `year` variable in the output tibble. 
 
 ```{r}
 #Creating the census_get wrapper function
@@ -548,4 +550,4 @@ This worked exactly as we wanted: the function returned an error before wasting 
 
 # Conclusion
 
-This document explores the use of the Public Use Microdata Sample Census API to effectively obtain individual responses to the American Community Survey. As these data require substantial work to get them into an analysis-ready form, we have created two key functions to automate the data pull and cleaning process. The first function is `census_get()`, which handles the data pull and cleaning process for individual survey years. The second function is `census_get_multiyear()`, which repeatedly deploys `census_get` to obtain multiple years of data in a single tibble. I hope you have found this overview of the data and functions informative, and that you find the functions useful in your future work! 
+This document explores the use of the Public Use Microdata Sample Census API to obtain individual responses to the American Community Survey. As these data require substantial work to get them into an analysis-ready form, we have created two key functions to automate the data pull and cleaning process. The first function is `census_get()`, which handles the data pull and cleaning process for individual survey years. The second function is `census_get_multiyear()`, which repeatedly deploys `census_get` to obtain multiple years of data in a single tibble. I hope you have found this overview of the data and functions informative, and that you find the functions useful in your future work! 

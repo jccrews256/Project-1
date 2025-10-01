@@ -8,7 +8,7 @@
 
 <meta name="author" content="Cass Crews">
 
-<title>Project 1: Functions</title>
+<title>Project 1: Functions for Census Bureau Public Use Microdata Sample Processing</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -117,7 +117,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">Project 1: Functions</h1>
+<h1 class="title">Project 1: Functions for Census Bureau Public Use Microdata Sample Processing</h1>
 </div>
 
 
@@ -142,12 +142,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="introduction" class="level1">
 <h1>Introduction</h1>
-<p>The Public Use Microdata Samples (PUMS) from the Census Bureau provide deep insights into the socio-demographic characteristics of US residents. With a few caveats, the samples contain the individual responses the the American Community Survey, giving researchers direct access to the lived experience of one percent of the US residents each year.</p>
-<p>While the data are incredibly valuable to understanding American life and its evolution, they are not particularly easy to work with. In its raw form, each annual dataset is very large and difficult to interpret. This page begins by describing the process of obtaining the data via the PUMS Census API before transitioning to the creation of a function that reads in and cleans user-specified subsets of an annual PUMS dataset. Finally, the page details the creation of a wrapper for this function that combines multiple years of cleaned data. As we proceed down the page, examples will be provided to highlight the outcomes of our work.</p>
+<p>The Public Use Microdata Samples (PUMS) from the Census Bureau provide deep insights into the socio-demographic characteristics of US residents. With a few caveats, the samples contain the individual responses from each American Community Survey, giving researchers direct access to the lived experience for one percent of US residents each year.</p>
+<p>While the data are incredibly valuable to understanding American life and its evolution, they are not particularly easy to work with. In its raw form, each annual dataset is very large and difficult to interpret. The goal of this page is to document an automated process for obtaining and processing subsets of the data, unlocking the power of the data for researchers. We begin by describing the process of obtaining the data via the PUMS Census application programming interface (API) before transitioning to the creation of a function that reads in and cleans user-specified subsets of an annual PUMS dataset. Finally, we detail the creation of a wrapper for this function that combines multiple years of cleaned data. As we proceed down the page, examples will be provided to highlight the outcomes of our work.</p>
 </section>
 <section id="loading-in-key-packages" class="level1">
 <h1>Loading in key packages</h1>
-<p>Before we begin, we need to load required packages. I have printed them below, but I have suppressed all messages and warning to preserve the tidyness of the page. After all, we are utilizing the <code>tidyverse</code>!</p>
+<p>Before we begin, we need to load required packages. I have printed them below, but I have suppressed all messages and warnings to preserve the tidyness of the page. After all, we are utilizing the <code>tidyverse</code>!</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Loading required packages</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span>
@@ -160,12 +160,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="understanding-the-census-api" class="level1">
 <h1>Understanding the Census API</h1>
-<p>To obtain PUMS data via the API, we can take the standard approach of using <code>httr::GET()</code> and determining the correct URL structure to obtain the data we want.</p>
+<p>To obtain PUMS data via the API, we can take the standard approach of using <code>httr::GET()</code> and determining the correct URL structure to request the data we want.</p>
 <p>As an example, we may want to obtain educational attainment for survey respondents living in Alabama in 2022. Let’s break down the corresponding URL:</p>
 <blockquote class="blockquote">
 <p><code>https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL&amp;for=state:01</code></p>
 </blockquote>
-<p>The portion of the URL up to the “<code>?</code>” (<code>https://api.census.gov/data/2022/acs/acs1/pums</code>) indicates that we want data from the ACS 2022 1-year PUMS file. <code>get=PWGTP,SCHL,AGEP</code> indicates we want the person-level weights, which we will use when generating tabulations to ensure our tabulations are representative of the Alabama population, as well as individuals’ educational attainment (<code>SCHL</code>) and age (<code>AGEP</code>). <code>for=state:01</code> indicates we only want data for Alabama.</p>
+<p>The portion of the URL up to the <code>?</code> (<code>https://api.census.gov/data/2022/acs/acs1/pums</code>) indicates that we want data from the ACS 2022 1-year PUMS file. <code>get=PWGTP,SCHL,AGEP</code> indicates we want the person-level weights (<code>PWGTP</code>), which we will use when generating tabulations to ensure our tabulations are representative of the Alabama population, as well as individuals’ educational attainment (<code>SCHL</code>) and age (<code>AGEP</code>). <code>for=state:01</code> indicates we only want data for Alabama.</p>
 <p>Let’s use <code>GET()</code> to read in our data and see what we get.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Making a standard API call</span></span>
@@ -183,8 +183,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
  $ all_headers:List of 1
  $ cookies    :'data.frame':    1 obs. of  7 variables:
  $ content    : raw [1:1189366] 5b 5b 22 50 ...
- $ date       : POSIXct[1:1], format: "2025-10-01 21:46:55"
- $ times      : Named num [1:6] 0 0.0449 0.1078 0.2195 0.8143 ...
+ $ date       : POSIXct[1:1], format: "2025-10-01 22:16:52"
+ $ times      : Named num [1:6] 0 0.0481 0.0953 0.209 0.6765 ...
   ..- attr(*, "names")= chr [1:6] "redirect" "namelookup" "connect" "pretransfer" ...
  $ request    :List of 7
   ..- attr(*, "class")= chr "request"
@@ -192,7 +192,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
  - attr(*, "class")= chr "response"</code></pre>
 </div>
 </div>
-<p>There is a lot of information returned by the Census API, but what we actually want is the raw, currently uninterpretable information in <code>example_data$content</code>. To extract these data in a usable form, we can combine the <code>rawToChar()</code> function, which will convert the raw data to human-interpretable data, with the <code>fromJSON()</code> function from the <code>jsonlite</code> package, which will convert our data to a data frame. As a final step, we can coerce our data to a tibble. This will result in cleaner printing.</p>
+<p>There is a lot of information returned by the Census API, but what we actually want is the raw, currently uninterpretable information in <code>example_data$content</code>. To extract these data in a usable form, we can combine the <code>rawToChar()</code> function, which will convert the raw data to human-interpretable data, with the <code>fromJSON()</code> function from the <code>jsonlite</code> package, which will convert our data to a matrix. As a final step, we can coerce our data to a tibble. This will result in cleaner printing.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Converting the data/content to a matrix</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>example_mat<span class="ot">&lt;-</span><span class="fu">fromJSON</span>(<span class="fu">rawToChar</span>(example_data<span class="sc">$</span>content))</span>
@@ -224,7 +224,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 # ℹ 51,570 more rows</code></pre>
 </div>
 </div>
-<p>This is still not particularly useful as educational attainment (<code>SCHL</code>) is a factor variable; the values have explicit meaning. Similarly, the values of <code>state</code> are all <code>01</code> rather than <code>Alabama</code>.</p>
+<p>This is still not particularly useful as educational attainment (<code>SCHL</code>) is a factor variable; the values are codes with explicit meaning. Similarly, the values of <code>state</code> are all <code>01</code> rather than <code>Alabama</code>.</p>
 <p>Additionally, it would be nice to not need to write out all the code to complete all the post-<code>GET</code> processing each time we make an API call. To deal with this issue, let’s write a helper function that completes the data processing for us.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Creating an API response cleaner "helper" function</span></span>
@@ -272,7 +272,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="a-function-to-query-census-api-and-clean-data" class="level1">
 <h1>A Function to Query Census API and Clean Data</h1>
-<p>we still face the issue that our data aren’t as informative as they could be. Also, it would be nice to be able to change our request and still have the resulting tibble be an informative and useful dataset.</p>
+<p>We still face the issue that our data aren’t as informative as they could be. Also, it would be nice to be able to change our request and still have the resulting tibble be an informative and useful dataset.</p>
 <p>To solve these current limitations, let’s build a comprehensive query function that allows the user to do the following:</p>
 <ul>
 <li>Select the survey year</li>
@@ -281,11 +281,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>Specify a geography level to report</li>
 <li>Optionally subset the data to specific geographies within the specified geography level</li>
 </ul>
+<p>Let’s design the function so it returns a tibble that is informative and ready for analysis.</p>
 <p>The resultant <code>census_get()</code> function is documented in the code chunk below. Note that there are five arguments consistent with our goals for the function:</p>
 <ul>
 <li><code>year</code>: The survey year we want to obtain data from, which cannot be <code>NULL</code> or multiple years
 <ul>
-<li>Valid Inputs are any year from 2010 to 2023, excluding 2020; default is 2022</li>
+<li>Valid Inputs are any year from 2010 to 2023, excluding 2020; the default is 2022</li>
 </ul></li>
 <li><code>numvar</code>: A vector indicating the numeric variables we want to return, which cannot be <code>NULL</code>. Available variables:
 <ul>
@@ -594,16 +595,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre><code># A tibble: 51,580 × 4
    PWGTP  AGEP SCHL                                         state  
    &lt;dbl&gt; &lt;dbl&gt; &lt;fct&gt;                                        &lt;chr&gt;  
- 1    69    85 1 or more years of college credit, no degree Alabama
- 2    22    51 GED or alternative credential                Alabama
- 3    45    36 Grade 8                                      Alabama
- 4     4    74 &lt;NA&gt;                                         Alabama
- 5    47    49 1 or more years of college credit, no degree Alabama
- 6    38    31 GED or alternative credential                Alabama
- 7    13    76 1 or more years of college credit, no degree Alabama
- 8    38    60 Grade 10                                     Alabama
- 9    66    35 Grade 11                                     Alabama
-10    31    72 Regular high school diploma                  Alabama
+ 1    21    81 Grade 11                                     Alabama
+ 2   313    79 Master's degree                              Alabama
+ 3    70    55 Regular high school diploma                  Alabama
+ 4    88    45 Regular high school diploma                  Alabama
+ 5   161    46 Regular high school diploma                  Alabama
+ 6    23    37 Associate's degree                           Alabama
+ 7    29    54 Bachelor's degree                            Alabama
+ 8    29    28 1 or more years of college credit, no degree Alabama
+ 9    35    30 Regular high school diploma                  Alabama
+10    71    93 Associate's degree                           Alabama
 # ℹ 51,570 more rows</code></pre>
 </div>
 </div>
@@ -633,7 +634,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 <p>This is exactly what we expected, so it looks like we correctly specified the defaults.</p>
-<p>Now let’s see how one of the time variables display by adding <code>JWAP</code> to the request. When we print the resulting tibble, let’s subset the data to only the individuals who provided a time they arrive at work.</p>
+<p>Now let’s see how one of the time variables displays by adding <code>JWAP</code> to the request. When we print the resulting tibble, let’s subset the data to only the individuals who provided a time they arrive at work.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Testing the function when a time variable is included</span></span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>third_tbl<span class="ot">&lt;-</span><span class="fu">census_get</span>(<span class="at">numvar=</span><span class="fu">c</span>(<span class="st">"AGEP"</span>,<span class="st">"JWAP"</span>))</span>
@@ -681,7 +682,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a-function-to-combine-multiple-survey-years" class="level1">
 <h1>A Function to Combine Multiple Survey Years</h1>
 <p>We have created a very helpful function. However, it is often the case that our analysis requires multiple years of data, such as when we want to analyze changes in age distributions across time. Let’s build a function that repeatedly deploys our <code>census_get</code> function for each year of data we request.</p>
-<p>The arguments and defaults for this <code>census_get_multiyear</code> function will be identical to those of the <code>census_get</code> function, except that <code>year</code> is now <code>years</code>; <code>years</code> accepts a vector of valid year values, and its default is <code>2021:2022</code>. To indicate the year an observation corresponds to, the function will include a <code>year</code> variable.</p>
+<p>The arguments and defaults for this <code>census_get_multiyear</code> function will be identical to those of the <code>census_get</code> function, except that <code>year</code> is now <code>years</code>; <code>years</code> accepts a vector of valid year values, and its default is <code>2021:2022</code>. To indicate the year an observation corresponds to, the function will include a <code>year</code> variable in the output tibble.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co">#Creating the census_get wrapper function</span></span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>census_get_multiyear<span class="ot">&lt;-</span><span class="cf">function</span>(<span class="at">years=</span><span class="dv">2021</span><span class="sc">:</span><span class="dv">2022</span>,<span class="at">numvar=</span><span class="st">"AGEP"</span>,<span class="at">catvar=</span><span class="st">"SEX"</span>,</span>
@@ -781,7 +782,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="conclusion" class="level1">
 <h1>Conclusion</h1>
-<p>This document explores the use of the Public Use Microdata Sample Census API to effectively obtain individual responses to the American Community Survey. As these data require substantial work to get them into an analysis-ready form, we have created two key functions to automate the data pull and cleaning process. The first function is <code>census_get()</code>, which handles the data pull and cleaning process for individual survey years. The second function is <code>census_get_multiyear()</code>, which repeatedly deploys <code>census_get</code> to obtain multiple years of data in a single tibble. I hope you have found this overview of the data and functions informative, and that you find the functions useful in your future work!</p>
+<p>This document explores the use of the Public Use Microdata Sample Census API to obtain individual responses to the American Community Survey. As these data require substantial work to get them into an analysis-ready form, we have created two key functions to automate the data pull and cleaning process. The first function is <code>census_get()</code>, which handles the data pull and cleaning process for individual survey years. The second function is <code>census_get_multiyear()</code>, which repeatedly deploys <code>census_get</code> to obtain multiple years of data in a single tibble. I hope you have found this overview of the data and functions informative, and that you find the functions useful in your future work!</p>
 
 
 </section>

@@ -13,7 +13,7 @@ While the data are incredibly valuable to understanding American life and its ev
 
 # Loading in Key Packages
 
-Before we begin, we need to load required packages. I have printed them below, but I have suppressed all messages and warnings to preserve the tidyness of the page. After all, we are utilizing the `tidyverse`! 
+Before we begin, we need to load required packages. I have printed them below, but I have suppressed all messages and warnings to preserve the tidiness of the page. After all, we are utilizing the `tidyverse`! 
 
 ```{r}
 #| message: FALSE

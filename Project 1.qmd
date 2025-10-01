@@ -1,5 +1,5 @@
 ---
-title: "Project 1: Functions for Census Bureau Public Use Microdata Sample Processing"
+title: "Project 1: Functions for Processing the Census Bureau's Public Use Microdata Samples"
 author: "Cass Crews"
 format: html
 editor: visual

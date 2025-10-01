@@ -26,12 +26,12 @@ As an example, we may want to obtain educational attainment for survey responden
 
 > `https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL&for=state:01`
 
-The portion of the URL up to the "`?`" (`https://api.census.gov/data/2022/acs/acs1/pums`) indicates that we want data from the ACS 2022 1-year PUMS file. `get=PWGTP,SCHL` indicates we want the person-level weights, which we will use when generating tabulations to ensure our tabulations are representative of the Alabama population, as well as the educational attainment variable (`SCHL`). `for=state:01` indicates we only want data for Alabama. 
+The portion of the URL up to the "`?`" (`https://api.census.gov/data/2022/acs/acs1/pums`) indicates that we want data from the ACS 2022 1-year PUMS file. `get=PWGTP,SCHL,AGEP` indicates we want the person-level weights, which we will use when generating tabulations to ensure our tabulations are representative of the Alabama population, as well as individuals' educational attainment (`SCHL`) and age (`AGEP`). `for=state:01` indicates we only want data for Alabama. 
 
 Let's use `GET()` to read in our data and see what we get. 
 
 ```{r}
-example_data<-GET("https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL&for=state:01")
+example_data<-GET("https://api.census.gov/data/2022/acs/acs1/pums?get=PWGTP,SCHL,AGEP&for=state:01")
 
 str(example_data,max.level=1)
 ```
@@ -45,10 +45,8 @@ colnames(example_mat)<-example_mat[1,]
 
 example_mat<-example_mat[-1,]
 
-#example_tbl<-as_tibble(example_mat) |>
-#  mutate(across(everything(),as.numeric))
-
-example_tbl$PWGTP<-as.numeric(example_tbl$PWGTP)
+example_tbl<-as_tibble(example_mat) |>
+  mutate(PWGTP=as.numeric(PWGTP))
 
 example_tbl
 ```
@@ -88,16 +86,45 @@ It looks like our function worked!
 we still face the issue that our data aren't as informative as they could be. Also, it would be nice to be able to change our request and still have the resulting tibble be an informative and useful dataset. 
 
 To solve these current limitations, let's build a comprehensive query function that allows the user to do the following:
-- Select the survey year (2010 to 2023, excluding 2020)
-- Select from a set of useful numeric variables, and returns    these data in the appropriate type
-- Select from a set of useful categorical variables and returns these data as factor variables with appropriate levels
-- Specify a geography level (All, Region, Division, or State)
-- Optionally subset the data to spectific geographies within the specified         geography level
+- Select the survey year
+- Select from a set of useful numeric variables, and return these data in the appropriate type
+- Select from a set of useful categorical variables and return these data as factor variables with appropriate levels
+- Specify a geography level to report
+- Optionally subset the data to specific geographies within the specified geography level
+
+The resultant `census_get()` function is documented in the code chunk below. Note that there are five parameters consistent with our goals for the function:
+- `year`: The survey year we want to obtain data from, which cannot be `NULL` or multiple years
+  - Valid Inputs are any year from 2010 to 2023, excluding 2020; default is 2022
+- `numvar`: A vector indicating the numeric variables we want to return, which cannot be `NULL`. Available variables:
+  - AGEP: The age of the individual in years; this variable is selected by default
+  - GASP: Monthly gas cost in dollars
+  - GRPIP: Gross rent as a percentage of household income over the past 12 months
+  - JWAP: Time of arrival at work; survey respondents select from 5-minute windows, which the function converts to a single time value using the midpoint of the window
+  - JWDP: Time of departure for work; survey respondents select from 10-minute windows, which the function converts to a single time value using the midpoint of the window
+  - JWMNP: Travel time to work in minutes
+- `catvar`: A vector indicating the categorical variables we want to return. Available variables:
+  - FER: Indicates whether the individual gave birth to a child within the past 12 months 
+  - HHL: Language spoken at home
+  - HISPEED: Indicates whether the individual has broadband internet service; HISPEED can only be requested for 2016 or later
+  - JWTRNS: Means of transportation to work; JWTRNS can only be requested for 2019 or later 
+  - SCH: Indicates whether the individual is enrolled in school
+  - SCHL: Highest level of educational attainment
+  - SEX: The sex of the individual; this variable is selected by default
+- `geo_level`: The geography level to return. Options:
+  - all: No geography level returned
+  - region: Census regions; region names available [here](https://api.census.gov/data/2022/acs/acs1/pums/variables/REGION.json)
+  - division: Census divisions; division names available [here](https://api.census.gov/data/2022/acs/acs1/pums/variables/DIVISION.json)
+  - state: US states plus DC, listed [here](https://api.census.gov/data/2022/acs/acs1/pums/variables/ST.json); this level is the default
+- `geo_select`: An optional vector of specific geographies of level `geo_level` to subset the returned data to. Use the links above to confirm geography spelling and formatting. By default the returned data are subset to individuals in Arizona. 
+
+Readers are encouraged to review the `get_census()` function code for full details on function behavior. We will summarize the function steps below the code chunk. 
 
 ```{r}
-census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",region_select="Arizona") {
-  
+census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_select="Arizona") {
+
+  ##############################################################################  
   #CHECKING USER INPUTS
+  ##############################################################################
   
   if (!(year %in% c(2010:2019,2021:2023))) 
     stop("year must be between 2010 and 2023, and must not be 2020") #Confirming year input
@@ -121,9 +148,11 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",regi
     stop("Invalid geography level") #Confirming geo_level input is valid
 
   
+  ##############################################################################
+  #BUILDING THE URL AND MAKING API CALL
+  ##############################################################################
 
-      
-  #CONVERTING geo_level TO CODES FOR GET URL SPECIFICATION
+  #CONVERTING geo_level TO CODES FOR GET URL SPECIFICATION  
   
   #Handling state case
   if (geo_level=="state") {
@@ -142,36 +171,38 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",regi
     geo_dict$labels<-word(geo_dict$labels,1,sep="/")
     
     #When state subset specified, capturing corresponding FIPS codes for GET URL
-    if (!is.null(region_select)) {
-      if (length(intersect(geo_dict$labels, region_select))==0) 
+    if (!is.null(geo_select)) {
+      if (length(intersect(geo_dict$labels, geo_select))==0) 
         stop("Invalid state specified") #Confirming supplied states are valid
       
       #Capturing FIPS codes
-      selected_geos<-geo_dict[(geo_dict$labels %in% region_select),]$state
+      selected_geos<-geo_dict[(geo_dict$labels %in% geo_select),]$state
     }
     
   #Handling region case
   } else if (geo_level=="region") {
     #Reading in region variable metadata    
-    metadata_geo<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/REGION.json"))
+    metadata_geo<-read_json(paste0("https://api.census.gov/data/",year,
+                                   "/acs/acs1/pums/variables/REGION.json"))
     
     #Capturing the region codes and labels
     geo_dict<-data.frame(region=unlist(names(metadata_geo$values$item)),
                           labels=unlist(metadata_geo$values$item,use.names=FALSE))    
 
     #When region subset specified, capturing corresponding codes for GET URL    
-    if (!is.null(region_select)) {
-      if (length(intersect(geo_dict$labels, region_select))==0) 
+    if (!is.null(geo_select)) {
+      if (length(intersect(geo_dict$labels, geo_select))==0) 
         stop("Invalid region specified") #Confirming supplied regions are valid
 
       #Capturing region codes      
-      selected_geos<-geo_dict[(geo_dict$labels %in% region_select),]$region
+      selected_geos<-geo_dict[(geo_dict$labels %in% geo_select),]$region
     } 
     
   #Handling division case
   } else if (geo_level=="division") {
     #Reading in division variable metadata
-    metadata_geo<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/DIVISION.json"))
+    metadata_geo<-read_json(paste0("https://api.census.gov/data/",year,
+                                   "/acs/acs1/pums/variables/DIVISION.json"))
     
     #Capturing the division codes and labels
     geo_dict<-data.frame(division=unlist(names(metadata_geo$values$item)),
@@ -181,64 +212,89 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",regi
     geo_dict$labels<-word(geo_dict$labels,1,sep=fixed(" ("))       
 
     #When division subset specified, capturing corresponding codes for GET URL
-    if (!is.null(region_select)) {
-      if (length(intersect(geo_dict$labels, region_select))==0) 
+    if (!is.null(geo_select)) {
+      if (length(intersect(geo_dict$labels, geo_select))==0) 
         stop("Invalid division specified") #Confirming supplied divisions are valid
       
       #Capturing division codes
-      selected_geos<-geo_dict[(geo_dict$labels %in% region_select),]$division
+      selected_geos<-geo_dict[(geo_dict$labels %in% geo_select),]$division
     }    
   }
   
   
-  
-  
-  #BUILDING THE URL AND MAKING API CALL
+  #CONSTRUCTING THE URL AND MAKING THE CALL
   
   #Building the URL when all is the specified geography
   if (geo_level=="all") { 
-    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","))
+    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",
+                paste(numvar,collapse=","),",",paste(catvar,collapse=","))
   #Building URL when another geography is specified and no specific regions are selected
-  } else if (is.null(region_select)) { 
-    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level,":*")
+  } else if (is.null(geo_select)) { 
+    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",
+                paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",
+                geo_level,":*")
   #Building URL when a subset of regions is specified
   } else { 
-    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",geo_level,":",paste(selected_geos,collapse=","))
+    URL<-paste0("https://api.census.gov/data/",year,"/acs/acs1/pums?get=PWGTP,",
+                paste(numvar,collapse=","),",",paste(catvar,collapse=","),"&for=",
+                geo_level,":",paste(selected_geos,collapse=","))
   }
   
   #Making API Call
   response<-GET(URL)
   
+
   
+  ##############################################################################
+  #DATA CLEANING
+  ##############################################################################  
   
-  #INITIAL DATA CLEANING
+  #APPLYING content_cleaner HELPER FUNCTION
   
   #Applying content_cleaner helper function
   clean_response<-content_cleaner(response)
   
+  
+  #CONVERTING NUMERIC VARIABLES TO NUMERIC TYPE
+  
   #Specifying potential truly numeric variable selections
   num_options<-c("AGEP","GASP","GRPIP","JWMNP")
  
+  #Converting numeric variables to numeric type
   clean_response<- clean_response |>
     mutate(across(any_of(num_options),as.numeric)) 
+
   
+  #TIME VARIABLE PROCESSING
+    
+  #Specifying potential time variable selections
   time_options<-c("JWAP","JWDP")
   
+  #Identifying time variables specified by user
   time_vars<-intersect(time_options,numvar)
   
+  #Looping across selected time variables to extract midpoint time values
+  #for time ranges and incorporating into dataset
   for (t in time_vars) {
-    metadata_time<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/",t,".json"))
+    #Reading in variable metadata
+    metadata_time<-read_json(paste0("https://api.census.gov/data/",year,
+                                    "/acs/acs1/pums/variables/",t,".json"))
     
+    #Capturing variable codes and labels
     value_dict<-data.frame(levels=unlist(names(metadata_time$values$item)),
                            labels=unlist(metadata_time$values$item,use.names=FALSE))
     
+    #Capturing time range endpoints
     value_dict[,3:4]<-str_split_fixed(value_dict[[2]]," to ",2)
     
+    #Converting endpoints to true time data
     value_dict[3]<-parse_hm(value_dict[[3]])
     value_dict[4]<-parse_hm(value_dict[[4]])
     
+    #Assigning endpoint names
     names(value_dict)[3:4]<-c("time_1","time_2")
     
+    #Calculating midpoint between time endpoints and producing clean time value dictionary
     value_dict<- value_dict |>
       mutate(secs_1=as.numeric(time_1),
              secs_2=as.numeric(time_2),
@@ -246,22 +302,37 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",regi
       select(levels,avg_time) |>
       rename(!!t := levels)
     
+    #Joining time midpoints to the dataset via the value codes and replacing codes
+    #with midpoints
     clean_response<- clean_response |>
       left_join(value_dict,by=t) |>
       mutate(!!t := avg_time) |>
       select(-avg_time)
   }
   
+  
+  #CATEGORICAL VARIABLE PROCESSING
+  
+  #Looping through categorical variables and converting to factors with appropriate
+  #labels
   for (c in catvar) {
-    metadata_cat<-read_json(paste0("https://api.census.gov/data/",year,"/acs/acs1/pums/variables/",c,".json"))
+    #Reading in categorical variable metadata
+    metadata_cat<-read_json(paste0("https://api.census.gov/data/",year,
+                                   "/acs/acs1/pums/variables/",c,".json"))
     
-    clean_response[c]<-factor(clean_response[[c]],levels=unlist(names(metadata_cat$values$item)),labels=unlist(metadata_cat$values$item,use.names=FALSE))
+    #Using metadata (codes and labels) to convert categorical variables to factors
+    clean_response[c]<-factor(clean_response[[c]],levels=unlist(names(metadata_cat$values$item)),
+                              labels=unlist(metadata_cat$values$item,use.names=FALSE))
   }
   
   
+  #GEOGRAPHIC VARIABLE PROCESSING
+  
+  #Stripping leading zeroes from state FIPS codes to match codes with labels 
+  #captured above in geo_dict
   if (geo_level=="state") clean_response$state<-as.character(as.numeric(clean_response$state))
   
-  #Assigning proper names to each geography
+  #Replacing geography codes with geography names
   if (geo_level!="all") {
     clean_response<- clean_response |>
       left_join(geo_dict,by=geo_level) |>
@@ -269,41 +340,149 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",regi
       select(-labels)    
   }
   
+
+  #MISSING VALUE HANDLING AND RETURN SPECIFICATION
+  
   #Changing truly missing values to missing
   clean_response<- clean_response |>
     mutate(across(any_of(c("GRPIP","JWMNP")),~na_if(.x,0))) |>
     mutate(across(any_of("GASP"),~if_else(.x<=3,NA_real_,.x))) #Handles variations in NA coding across years
   
+  #Indicating we want to return the processed dataset
   return(clean_response)
 }
 
-test_response<-census_get(year=2018,catvar=c("SEX","HHL"),numvar=c("AGEP","JWAP","JWDP"),geo_level="state",region_select="Arizona")
+test_response<-census_get(year=2018,catvar=c("SEX","HHL"),numvar=c("AGEP","JWAP","JWDP"),
+                          geo_level="state",geo_select="Arizona")
 ```
 
+The function achieves our goals via the following general steps. First, the user inputs are thoroughly evaluated to ensure no required inputs are `NULL` and all specifications for `year`, `numvar`, `catvar`, `geo_level`, and `geo_select` are valid options. When mistakes are made, informative error messages are given to the user understands their mistake. 
 
+Second, the appropriate URL is constructed and the API call is made. This involves converting any `geo_select` inputs to the numeric codes the API can interpret, as well as incorporating the correct year and variable names into the URL. 
+
+Third, the data are cleaned and returned. Data cleaning has the following sub-steps:
+1. Our `content_cleaner()` helper function is applied to the data
+2. The non-time numeric variables are converted to numeric type
+3. Time variables are converted to time type using the midpoint of the time ranges
+4. Categorical variables are converted to factors with appropriate labels 
+5. Geography names replace codes for any geography variables
+6. Missing value codes in numeric variables are changed to missing (`NA`)
+
+Now that we have the function and generally know how it works, let's test it. To start, let's again request educational attainment and age for individuals from Alabama in the 2022 survey. 
 
 ```{r}
-census_get_multiyear<-function(years=2021:2022,numvar="AGEP",catvar="SEX",geo_level="state",region_select="Arizona") {
-  #Checking year inputs to avoid unnecessary computation
-  if (length(setdiff(years,c(2010:2019,2021:2023)))> 0) stop("At least one input year not allowed")
-   
+first_tbl<-census_get(year=2022,catvar=c("SCHL"),numvar=c("AGEP"),
+                          geo_level="state",geo_select="Alabama")
+
+first_tbl
+```
+
+This is much better! Age is now numeric, educational attainment is easily interpreted, and we do not need to look up Alabama's FIPS code to ensure we have the correct state. 
+
+Let's keep testing the function by confirming our default inputs evaluate correctly. 
+
+```{r}
+second_tbl<-census_get()
+
+second_tbl
+```
+
+This is exactly what we expected, so it looks like we correctly specified the defaults. 
+
+Now let's see how one of the time variables display by adding `JWAP` to the request. When we print the resulting tibble, let's subset the data to only the individuals who provided a time they arrive at work. 
+
+```{r}
+third_tbl<-census_get(numvar=c("AGEP","JWAP"))
+
+third_tbl |> 
+  filter(!is.na(JWAP))
+```
+
+Again, this looks great. Not only do we have cleanly displayed times, but we have data we can analyze to understand the distribution of arrival times. 
+
+As a final set of checks, let's intentionally make mistakes in our inputs to see how our error messages present.First, let's see what happens when we request a numeric variable that is not available. 
+
+```{r}
+#| error: true
+non_created_tbl1<-census_get(numvar="DOG")
+```
+
+Excellent! Not only do we get an error, but we know the error is because one of the specified numeric variables is not allowed. 
+
+Now let's see what happens when we request data for a state that isn't actually a state.
+
+```{r}
+#| error: true
+non_created_tbl2<-census_get(geo_select="Cat")
+```
+
+Now we know there is no US state named Cat. Good to know. 
+
+
+# A Function to Combine Multiple Survey Years
+
+We have created a very helpful function. However, it is often the case that our analysis requires multiple years of data, such as when we want to analyze changes in age distributions across time. Let's build a function that repeatedly deploys our `census_get` function for each year of data we request. 
+
+The arguments and defaults for this `census_get_multiyear` function will be identical to those of the `census_get` function, except that `year` is now `years`; `years` accepts a vector of valid year values, and its default is `2021:2022`. To indicate the year an observation corresponds to, the function will include a `year` variable. 
+
+```{r}
+census_get_multiyear<-function(years=2021:2022,numvar="AGEP",catvar="SEX",
+                               geo_level="state",geo_select="Arizona") {
+  
+  #Checking year inputs to avoid unnecessary computation if one input invalid
+  if (length(setdiff(years,c(2010:2019,2021:2023)))> 0) 
+    stop("At least one input year not allowed")
+  
+  #Looping through years to run census_get function and append each year of data 
   counter<-1
   for (y in years) {
+    #Running census_get for first year and creating initial dataset
     if (counter==1) {
-      data<-census_get(year=y,catvar=catvar,numvar=numvar,geo_level=geo_level,region_select=region_select)
+      data<-census_get(year=y,catvar=catvar,numvar=numvar,geo_level=geo_level,
+                       geo_select=geo_select)
+      
+      #Capturing year of data
       data$year<-y
+      
+    #Running census_get for subsequent years and appending to initial dataset
     } else {
-      int_data<-census_get(year=y,catvar=catvar,numvar=numvar,geo_level=geo_level,region_select=region_select)
+      int_data<-census_get(year=y,catvar=catvar,numvar=numvar,geo_level=geo_level,
+                           geo_select=geo_select)
       int_data$year<-y
       
       data<-bind_rows(data,int_data)
     }
-    counter<-counter+1
+    counter<-counter+1 #Updating counter for if/else 
   }
   
+  #Indicating we want the full appended dataset returned
   return(data)
 }
-
-test_response_multiyear<-census_get_multiyear(years=c(2010,2023),numvar="GASP",geo_level="division",region_select="Mountain")
 ```
 
+We can test the function to ensure it works as intends. First, let's request the recent birth indicator for individuals living in the Mountain census division in 2016 and 2023. We will produce two different filtered prints to ensure we obtain both years of data; we filter to each year and keep only females. We might request these data if we wanted to analyze changes in birth rates. 
+
+```{r}
+first_multiyr_tbl<-census_get_multiyear(years=c(2016,2023),catvar=c("FER","SEX"),geo_level="division",geo_select="Mountain")
+
+first_multiyr_tbl |> 
+  filter(year==2016,SEX=="Female")
+
+first_multiyr_tbl |>
+  filter(year==2023,SEX=="Female")
+```
+
+The new multi-year function works as intended. Additionally, by comparing age and the recent birth indicator, we see initial evidence that our factor labeling works correctly; note that females with ages below 15 or above 50 are assigned an `N/A`. 
+
+As a final check, let's see what happens when we request a year outside the available range. 
+
+```{r}
+#| error: true
+non_created_multiyr_tbl<-census_get_multiyear(years=c(2016,2024),catvar=c("FER","SEX"),geo_level="division",geo_select="Mountain")
+```
+
+This worked exactly as we wanted: the function returned an error before wasting time submitting inputs to `census_get`. 
+
+# Conclusion
+
+This document explores the use of the Public Use Microdata Sample Census API to effectively obtain individual responses to the American Community Survey. As these data require substantial work to get them into an analysis-ready form, we have created two key functions to automate the data pull and cleaning process. The first function is `census_get()`, which handles the data pull and cleaning process for individual survey years. The second function is `census_get_multiyear()`, which repeatedly deploys `census_get` to obtain multiple years of data in a single tibble. I hope you have found this overview of the data and functions informative, and that you find the functions useful in your future work! 

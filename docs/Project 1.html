@@ -225,8 +225,8 @@ The following object is masked from 'package:lubridate':
  $ all_headers:List of 1
  $ cookies    :'data.frame':    1 obs. of  7 variables:
  $ content    : raw [1:1189366] 5b 5b 22 50 ...
- $ date       : POSIXct[1:1], format: "2025-10-01 02:51:57"
- $ times      : Named num [1:6] 0 0.00843 0.10293 0.21892 0.61559 ...
+ $ date       : POSIXct[1:1], format: "2025-10-01 19:57:35"
+ $ times      : Named num [1:6] 0 0.00941 0.06896 0.17647 0.55648 ...
   ..- attr(*, "names")= chr [1:6] "redirect" "namelookup" "connect" "pretransfer" ...
  $ request    :List of 7
   ..- attr(*, "class")= chr "request"
@@ -307,8 +307,49 @@ The following object is masked from 'package:lubridate':
 <section id="a-function-to-query-census-api-and-clean-data" class="level1">
 <h1>A Function to Query Census API and Clean Data</h1>
 <p>we still face the issue that our data aren’t as informative as they could be. Also, it would be nice to be able to change our request and still have the resulting tibble be an informative and useful dataset.</p>
-<p>To solve these current limitations, let’s build a comprehensive query function that allows the user to do the following: - Select the survey year - Select from a set of useful numeric variables, and return these data in the appropriate type - Select from a set of useful categorical variables and return these data as factor variables with appropriate levels - Specify a geography level to report - Optionally subset the data to specific geographies within the specified geography level</p>
-<p>The resultant <code>census_get()</code> function is documented in the code chunk below. Note that there are five parameters consistent with our goals for the function: - <code>year</code>: The survey year we want to obtain data from, which cannot be <code>NULL</code> or multiple years - Valid Inputs are any year from 2010 to 2023, excluding 2020; default is 2022 - <code>numvar</code>: A vector indicating the numeric variables we want to return, which cannot be <code>NULL</code>. Available variables: - AGEP: The age of the individual in years; this variable is selected by default - GASP: Monthly gas cost in dollars - GRPIP: Gross rent as a percentage of household income over the past 12 months - JWAP: Time of arrival at work; survey respondents select from 5-minute windows, which the function converts to a single time value using the midpoint of the window - JWDP: Time of departure for work; survey respondents select from 10-minute windows, which the function converts to a single time value using the midpoint of the window - JWMNP: Travel time to work in minutes - <code>catvar</code>: A vector indicating the categorical variables we want to return. Available variables: - FER: Indicates whether the individual gave birth to a child within the past 12 months - HHL: Language spoken at home - HISPEED: Indicates whether the individual has broadband internet service; HISPEED can only be requested for 2016 or later - JWTRNS: Means of transportation to work; JWTRNS can only be requested for 2019 or later - SCH: Indicates whether the individual is enrolled in school - SCHL: Highest level of educational attainment - SEX: The sex of the individual; this variable is selected by default - <code>geo_level</code>: The geography level to return. Options: - all: No geography level returned - region: Census regions; region names available <a href="https://api.census.gov/data/2022/acs/acs1/pums/variables/REGION.json">here</a> - division: Census divisions; division names available <a href="https://api.census.gov/data/2022/acs/acs1/pums/variables/DIVISION.json">here</a> - state: US states plus DC, listed <a href="https://api.census.gov/data/2022/acs/acs1/pums/variables/ST.json">here</a>; this level is the default - <code>geo_select</code>: An optional vector of specific geographies of level <code>geo_level</code> to subset the returned data to. Use the links above to confirm geography spelling and formatting. By default the returned data are subset to individuals in Arizona.</p>
+<p>To solve these current limitations, let’s build a comprehensive query function that allows the user to do the following:</p>
+<ul>
+<li>Select the survey year</li>
+<li>Select from a set of useful numeric variables, and return these data in the appropriate type</li>
+<li>Select from a set of useful categorical variables and return these data as factor variables with appropriate levels</li>
+<li>Specify a geography level to report</li>
+<li>Optionally subset the data to specific geographies within the specified geography level</li>
+</ul>
+<p>The resultant <code>census_get()</code> function is documented in the code chunk below. Note that there are five parameters consistent with our goals for the function:</p>
+<ul>
+<li><code>year</code>: The survey year we want to obtain data from, which cannot be <code>NULL</code> or multiple years
+<ul>
+<li>Valid Inputs are any year from 2010 to 2023, excluding 2020; default is 2022</li>
+</ul></li>
+<li><code>numvar</code>: A vector indicating the numeric variables we want to return, which cannot be <code>NULL</code>. Available variables:
+<ul>
+<li><code>AGEP</code>: The age of the individual in years; this variable is selected by default</li>
+<li><code>GASP</code>: Monthly gas cost in dollars</li>
+<li><code>GRPIP</code>: Gross rent as a percentage of household income over the past 12 months</li>
+<li><code>JWAP</code>: Time of arrival at work; survey respondents select from 5-minute windows, which the function converts to a single time value using the midpoint of the window</li>
+<li><code>JWDP</code>: Time of departure for work; survey respondents select from 10-minute windows, which the function converts to a single time value using the midpoint of the window</li>
+<li><code>JWMNP</code>: Travel time to work in minutes</li>
+</ul></li>
+<li><code>catvar</code>: A vector indicating the categorical variables we want to return. Available variables:
+<ul>
+<li><code>FER</code>: Indicates whether the individual gave birth to a child within the past 12 months</li>
+<li><code>HHL</code>: Language spoken at home</li>
+<li><code>HISPEED</code>: Indicates whether the individual has broadband internet service; <code>HISPEED</code> can only be requested for 2016 or later</li>
+<li><code>JWTRNS</code>: Means of transportation to work; <code>JWTRNS</code> can only be requested for 2019 or later</li>
+<li><code>SCH</code>: Indicates whether the individual is enrolled in school</li>
+<li><code>SCHL</code>: Highest level of educational attainment</li>
+<li><code>SEX</code>: The sex of the individual; this variable is selected by default</li>
+</ul></li>
+<li><code>geo_level</code>: The geography level to return. Options:
+<ul>
+<li><code>all</code>: No geography level returned</li>
+<li><code>region</code>: Census regions; region names available <a href="https://api.census.gov/data/2022/acs/acs1/pums/variables/REGION.json">here</a></li>
+<li><code>division</code>: Census divisions; division names available <a href="https://api.census.gov/data/2022/acs/acs1/pums/variables/DIVISION.json">here</a></li>
+<li><code>state</code>: US states plus DC, listed <a href="https://api.census.gov/data/2022/acs/acs1/pums/variables/ST.json">here</a>; this level is the default</li>
+</ul></li>
+<li><code>geo_select</code>: An optional vector of specific geographies of level <code>geo_level</code> to subset the returned data to. Use the links above to confirm geography spelling and formatting. By default the returned data are subset to individuals in Arizona.</li>
+</ul>
+<p>In addition to the optional variables, <code>PWGTP</code>, the number of individuals each observation “represents,” is always included in the function output. This is because we need <code>PWGTP</code> to generate population-representative tabulations from the data.</p>
 <p>Readers are encouraged to review the <code>get_census()</code> function code for full details on function behavior. We will summarize the function steps below the code chunk.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>census_get<span class="ot">&lt;-</span><span class="cf">function</span>(<span class="at">year=</span><span class="dv">2022</span>,<span class="at">numvar=</span><span class="st">"AGEP"</span>,<span class="at">catvar=</span><span class="st">"SEX"</span>,<span class="at">geo_level=</span><span class="st">"state"</span>,<span class="at">geo_select=</span><span class="st">"Arizona"</span>) {</span>
@@ -343,7 +384,7 @@ The following object is masked from 'package:lubridate':
 <span id="cb22-30"><a href="#cb22-30" aria-hidden="true" tabindex="-1"></a>  <span class="co">#BUILDING THE URL AND MAKING API CALL</span></span>
 <span id="cb22-31"><a href="#cb22-31" aria-hidden="true" tabindex="-1"></a>  <span class="do">##############################################################################</span></span>
 <span id="cb22-32"><a href="#cb22-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-33"><a href="#cb22-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">#CONVERTING geo_level TO CODES FOR GET URL SPECIFICATION  </span></span>
+<span id="cb22-33"><a href="#cb22-33" aria-hidden="true" tabindex="-1"></a>  <span class="co">#CONVERTING geo_level TO CODES FOR GET URL SPECIFICATION######################  </span></span>
 <span id="cb22-34"><a href="#cb22-34" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-35"><a href="#cb22-35" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Handling state case</span></span>
 <span id="cb22-36"><a href="#cb22-36" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (geo_level<span class="sc">==</span><span class="st">"state"</span>) {</span>
@@ -413,7 +454,7 @@ The following object is masked from 'package:lubridate':
 <span id="cb22-100"><a href="#cb22-100" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb22-101"><a href="#cb22-101" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-102"><a href="#cb22-102" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb22-103"><a href="#cb22-103" aria-hidden="true" tabindex="-1"></a>  <span class="co">#CONSTRUCTING THE URL AND MAKING THE CALL</span></span>
+<span id="cb22-103"><a href="#cb22-103" aria-hidden="true" tabindex="-1"></a>  <span class="co">#CONSTRUCTING THE URL AND MAKING THE CALL#####################################</span></span>
 <span id="cb22-104"><a href="#cb22-104" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-105"><a href="#cb22-105" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Building the URL when all is the specified geography</span></span>
 <span id="cb22-106"><a href="#cb22-106" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (geo_level<span class="sc">==</span><span class="st">"all"</span>) { </span>
@@ -440,13 +481,13 @@ The following object is masked from 'package:lubridate':
 <span id="cb22-127"><a href="#cb22-127" aria-hidden="true" tabindex="-1"></a>  <span class="co">#DATA CLEANING</span></span>
 <span id="cb22-128"><a href="#cb22-128" aria-hidden="true" tabindex="-1"></a>  <span class="do">##############################################################################  </span></span>
 <span id="cb22-129"><a href="#cb22-129" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb22-130"><a href="#cb22-130" aria-hidden="true" tabindex="-1"></a>  <span class="co">#APPLYING content_cleaner HELPER FUNCTION</span></span>
+<span id="cb22-130"><a href="#cb22-130" aria-hidden="true" tabindex="-1"></a>  <span class="co">#APPLYING content_cleaner HELPER FUNCTION#####################################</span></span>
 <span id="cb22-131"><a href="#cb22-131" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-132"><a href="#cb22-132" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Applying content_cleaner helper function</span></span>
 <span id="cb22-133"><a href="#cb22-133" aria-hidden="true" tabindex="-1"></a>  clean_response<span class="ot">&lt;-</span><span class="fu">content_cleaner</span>(response)</span>
 <span id="cb22-134"><a href="#cb22-134" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-135"><a href="#cb22-135" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb22-136"><a href="#cb22-136" aria-hidden="true" tabindex="-1"></a>  <span class="co">#CONVERTING NUMERIC VARIABLES TO NUMERIC TYPE</span></span>
+<span id="cb22-136"><a href="#cb22-136" aria-hidden="true" tabindex="-1"></a>  <span class="co">#CONVERTING NUMERIC VARIABLES TO NUMERIC TYPE#################################</span></span>
 <span id="cb22-137"><a href="#cb22-137" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-138"><a href="#cb22-138" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Specifying potential truly numeric variable selections</span></span>
 <span id="cb22-139"><a href="#cb22-139" aria-hidden="true" tabindex="-1"></a>  num_options<span class="ot">&lt;-</span><span class="fu">c</span>(<span class="st">"AGEP"</span>,<span class="st">"GASP"</span>,<span class="st">"GRPIP"</span>,<span class="st">"JWMNP"</span>)</span>
@@ -456,7 +497,7 @@ The following object is masked from 'package:lubridate':
 <span id="cb22-143"><a href="#cb22-143" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="fu">across</span>(<span class="fu">any_of</span>(num_options),as.numeric)) </span>
 <span id="cb22-144"><a href="#cb22-144" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb22-145"><a href="#cb22-145" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb22-146"><a href="#cb22-146" aria-hidden="true" tabindex="-1"></a>  <span class="co">#TIME VARIABLE PROCESSING</span></span>
+<span id="cb22-146"><a href="#cb22-146" aria-hidden="true" tabindex="-1"></a>  <span class="co">#TIME VARIABLE PROCESSING#####################################################</span></span>
 <span id="cb22-147"><a href="#cb22-147" aria-hidden="true" tabindex="-1"></a>    </span>
 <span id="cb22-148"><a href="#cb22-148" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Specifying potential time variable selections</span></span>
 <span id="cb22-149"><a href="#cb22-149" aria-hidden="true" tabindex="-1"></a>  time_options<span class="ot">&lt;-</span><span class="fu">c</span>(<span class="st">"JWAP"</span>,<span class="st">"JWDP"</span>)</span>
@@ -502,7 +543,7 @@ The following object is masked from 'package:lubridate':
 <span id="cb22-189"><a href="#cb22-189" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb22-190"><a href="#cb22-190" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-191"><a href="#cb22-191" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb22-192"><a href="#cb22-192" aria-hidden="true" tabindex="-1"></a>  <span class="co">#CATEGORICAL VARIABLE PROCESSING</span></span>
+<span id="cb22-192"><a href="#cb22-192" aria-hidden="true" tabindex="-1"></a>  <span class="co">#CATEGORICAL VARIABLE PROCESSING##############################################</span></span>
 <span id="cb22-193"><a href="#cb22-193" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-194"><a href="#cb22-194" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Looping through categorical variables and converting to factors with appropriate</span></span>
 <span id="cb22-195"><a href="#cb22-195" aria-hidden="true" tabindex="-1"></a>  <span class="co">#labels</span></span>
@@ -517,7 +558,7 @@ The following object is masked from 'package:lubridate':
 <span id="cb22-204"><a href="#cb22-204" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb22-205"><a href="#cb22-205" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-206"><a href="#cb22-206" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb22-207"><a href="#cb22-207" aria-hidden="true" tabindex="-1"></a>  <span class="co">#GEOGRAPHIC VARIABLE PROCESSING</span></span>
+<span id="cb22-207"><a href="#cb22-207" aria-hidden="true" tabindex="-1"></a>  <span class="co">#GEOGRAPHIC VARIABLE PROCESSING###############################################</span></span>
 <span id="cb22-208"><a href="#cb22-208" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-209"><a href="#cb22-209" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Stripping leading zeroes from state FIPS codes to match codes with labels </span></span>
 <span id="cb22-210"><a href="#cb22-210" aria-hidden="true" tabindex="-1"></a>  <span class="co">#captured above in geo_dict</span></span>
@@ -532,7 +573,7 @@ The following object is masked from 'package:lubridate':
 <span id="cb22-219"><a href="#cb22-219" aria-hidden="true" tabindex="-1"></a>  }</span>
 <span id="cb22-220"><a href="#cb22-220" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-221"><a href="#cb22-221" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-222"><a href="#cb22-222" aria-hidden="true" tabindex="-1"></a>  <span class="co">#MISSING VALUE HANDLING AND RETURN SPECIFICATION</span></span>
+<span id="cb22-222"><a href="#cb22-222" aria-hidden="true" tabindex="-1"></a>  <span class="co">#MISSING VALUE HANDLING AND RETURN SPECIFICATION##############################</span></span>
 <span id="cb22-223"><a href="#cb22-223" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-224"><a href="#cb22-224" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Changing truly missing values to missing</span></span>
 <span id="cb22-225"><a href="#cb22-225" aria-hidden="true" tabindex="-1"></a>  clean_response<span class="ot">&lt;-</span> clean_response <span class="sc">|&gt;</span></span>
@@ -541,14 +582,19 @@ The following object is masked from 'package:lubridate':
 <span id="cb22-228"><a href="#cb22-228" aria-hidden="true" tabindex="-1"></a>  </span>
 <span id="cb22-229"><a href="#cb22-229" aria-hidden="true" tabindex="-1"></a>  <span class="co">#Indicating we want to return the processed dataset</span></span>
 <span id="cb22-230"><a href="#cb22-230" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(clean_response)</span>
-<span id="cb22-231"><a href="#cb22-231" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb22-232"><a href="#cb22-232" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-233"><a href="#cb22-233" aria-hidden="true" tabindex="-1"></a>test_response<span class="ot">&lt;-</span><span class="fu">census_get</span>(<span class="at">year=</span><span class="dv">2018</span>,<span class="at">catvar=</span><span class="fu">c</span>(<span class="st">"SEX"</span>,<span class="st">"HHL"</span>),<span class="at">numvar=</span><span class="fu">c</span>(<span class="st">"AGEP"</span>,<span class="st">"JWAP"</span>,<span class="st">"JWDP"</span>),</span>
-<span id="cb22-234"><a href="#cb22-234" aria-hidden="true" tabindex="-1"></a>                          <span class="at">geo_level=</span><span class="st">"state"</span>,<span class="at">geo_select=</span><span class="st">"Arizona"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb22-231"><a href="#cb22-231" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <p>The function achieves our goals via the following general steps. First, the user inputs are thoroughly evaluated to ensure no required inputs are <code>NULL</code> and all specifications for <code>year</code>, <code>numvar</code>, <code>catvar</code>, <code>geo_level</code>, and <code>geo_select</code> are valid options. When mistakes are made, informative error messages are given to the user understands their mistake.</p>
 <p>Second, the appropriate URL is constructed and the API call is made. This involves converting any <code>geo_select</code> inputs to the numeric codes the API can interpret, as well as incorporating the correct year and variable names into the URL.</p>
-<p>Third, the data are cleaned and returned. Data cleaning has the following sub-steps: 1. Our <code>content_cleaner()</code> helper function is applied to the data 2. The non-time numeric variables are converted to numeric type 3. Time variables are converted to time type using the midpoint of the time ranges 4. Categorical variables are converted to factors with appropriate labels 5. Geography names replace codes for any geography variables 6. Missing value codes in numeric variables are changed to missing (<code>NA</code>)</p>
+<p>Third, the data are cleaned and returned. Data cleaning has the following sub-steps:</p>
+<ol type="1">
+<li>Our <code>content_cleaner()</code> helper function is applied to the data</li>
+<li>The non-time numeric variables are converted to numeric type</li>
+<li>Time variables are converted to time type using the midpoint of the time ranges</li>
+<li>Categorical variables are converted to factors with appropriate labels</li>
+<li>Geography names replace codes for any geography variables</li>
+<li>Missing value codes in numeric variables are changed to missing (<code>NA</code>)</li>
+</ol>
 <p>Now that we have the function and generally know how it works, let’s test it. To start, let’s again request educational attainment and age for individuals from Alabama in the 2022 survey.</p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>first_tbl<span class="ot">&lt;-</span><span class="fu">census_get</span>(<span class="at">year=</span><span class="dv">2022</span>,<span class="at">catvar=</span><span class="fu">c</span>(<span class="st">"SCHL"</span>),<span class="at">numvar=</span><span class="fu">c</span>(<span class="st">"AGEP"</span>),</span>

@@ -10,6 +10,7 @@ editor: visual
 # Loading in key packages
 
 ```{r}
+#| results: hide
 library(tidyverse)
 library(httr)
 library(jsonlite)
@@ -86,6 +87,7 @@ It looks like our function worked!
 we still face the issue that our data aren't as informative as they could be. Also, it would be nice to be able to change our request and still have the resulting tibble be an informative and useful dataset. 
 
 To solve these current limitations, let's build a comprehensive query function that allows the user to do the following:
+
 - Select the survey year
 - Select from a set of useful numeric variables, and return these data in the appropriate type
 - Select from a set of useful categorical variables and return these data as factor variables with appropriate levels
@@ -93,29 +95,32 @@ To solve these current limitations, let's build a comprehensive query function t
 - Optionally subset the data to specific geographies within the specified geography level
 
 The resultant `census_get()` function is documented in the code chunk below. Note that there are five parameters consistent with our goals for the function:
+
 - `year`: The survey year we want to obtain data from, which cannot be `NULL` or multiple years
   - Valid Inputs are any year from 2010 to 2023, excluding 2020; default is 2022
 - `numvar`: A vector indicating the numeric variables we want to return, which cannot be `NULL`. Available variables:
-  - AGEP: The age of the individual in years; this variable is selected by default
-  - GASP: Monthly gas cost in dollars
-  - GRPIP: Gross rent as a percentage of household income over the past 12 months
-  - JWAP: Time of arrival at work; survey respondents select from 5-minute windows, which the function converts to a single time value using the midpoint of the window
-  - JWDP: Time of departure for work; survey respondents select from 10-minute windows, which the function converts to a single time value using the midpoint of the window
-  - JWMNP: Travel time to work in minutes
+  - `AGEP`: The age of the individual in years; this variable is selected by default
+  - `GASP`: Monthly gas cost in dollars
+  - `GRPIP`: Gross rent as a percentage of household income over the past 12 months
+  - `JWAP`: Time of arrival at work; survey respondents select from 5-minute windows, which the function converts to a single time value using the midpoint of the window
+  - `JWDP`: Time of departure for work; survey respondents select from 10-minute windows, which the function converts to a single time value using the midpoint of the window
+  - `JWMNP`: Travel time to work in minutes
 - `catvar`: A vector indicating the categorical variables we want to return. Available variables:
-  - FER: Indicates whether the individual gave birth to a child within the past 12 months 
-  - HHL: Language spoken at home
-  - HISPEED: Indicates whether the individual has broadband internet service; HISPEED can only be requested for 2016 or later
-  - JWTRNS: Means of transportation to work; JWTRNS can only be requested for 2019 or later 
-  - SCH: Indicates whether the individual is enrolled in school
-  - SCHL: Highest level of educational attainment
-  - SEX: The sex of the individual; this variable is selected by default
+  - `FER`: Indicates whether the individual gave birth to a child within the past 12 months 
+  - `HHL`: Language spoken at home
+  - `HISPEED`: Indicates whether the individual has broadband internet service; `HISPEED` can only be requested for 2016 or later
+  - `JWTRNS`: Means of transportation to work; `JWTRNS` can only be requested for 2019 or later 
+  - `SCH`: Indicates whether the individual is enrolled in school
+  - `SCHL`: Highest level of educational attainment
+  - `SEX`: The sex of the individual; this variable is selected by default
 - `geo_level`: The geography level to return. Options:
-  - all: No geography level returned
-  - region: Census regions; region names available [here](https://api.census.gov/data/2022/acs/acs1/pums/variables/REGION.json)
-  - division: Census divisions; division names available [here](https://api.census.gov/data/2022/acs/acs1/pums/variables/DIVISION.json)
-  - state: US states plus DC, listed [here](https://api.census.gov/data/2022/acs/acs1/pums/variables/ST.json); this level is the default
+  - `all`: No geography level returned
+  - `region`: Census regions; region names available [here](https://api.census.gov/data/2022/acs/acs1/pums/variables/REGION.json)
+  - `division`: Census divisions; division names available [here](https://api.census.gov/data/2022/acs/acs1/pums/variables/DIVISION.json)
+  - `state`: US states plus DC, listed [here](https://api.census.gov/data/2022/acs/acs1/pums/variables/ST.json); this level is the default
 - `geo_select`: An optional vector of specific geographies of level `geo_level` to subset the returned data to. Use the links above to confirm geography spelling and formatting. By default the returned data are subset to individuals in Arizona. 
+
+In addition to the optional variables, `PWGTP`, the number of individuals each observation "represents," is always included in the function output. This is because we need `PWGTP` to generate population-representative tabulations from the data. 
 
 Readers are encouraged to review the `get_census()` function code for full details on function behavior. We will summarize the function steps below the code chunk. 
 
@@ -152,7 +157,7 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   #BUILDING THE URL AND MAKING API CALL
   ##############################################################################
 
-  #CONVERTING geo_level TO CODES FOR GET URL SPECIFICATION  
+  #CONVERTING geo_level TO CODES FOR GET URL SPECIFICATION######################  
   
   #Handling state case
   if (geo_level=="state") {
@@ -222,7 +227,7 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   }
   
   
-  #CONSTRUCTING THE URL AND MAKING THE CALL
+  #CONSTRUCTING THE URL AND MAKING THE CALL#####################################
   
   #Building the URL when all is the specified geography
   if (geo_level=="all") { 
@@ -249,13 +254,13 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   #DATA CLEANING
   ##############################################################################  
   
-  #APPLYING content_cleaner HELPER FUNCTION
+  #APPLYING content_cleaner HELPER FUNCTION#####################################
   
   #Applying content_cleaner helper function
   clean_response<-content_cleaner(response)
   
   
-  #CONVERTING NUMERIC VARIABLES TO NUMERIC TYPE
+  #CONVERTING NUMERIC VARIABLES TO NUMERIC TYPE#################################
   
   #Specifying potential truly numeric variable selections
   num_options<-c("AGEP","GASP","GRPIP","JWMNP")
@@ -265,7 +270,7 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
     mutate(across(any_of(num_options),as.numeric)) 
 
   
-  #TIME VARIABLE PROCESSING
+  #TIME VARIABLE PROCESSING#####################################################
     
   #Specifying potential time variable selections
   time_options<-c("JWAP","JWDP")
@@ -311,7 +316,7 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   }
   
   
-  #CATEGORICAL VARIABLE PROCESSING
+  #CATEGORICAL VARIABLE PROCESSING##############################################
   
   #Looping through categorical variables and converting to factors with appropriate
   #labels
@@ -326,7 +331,7 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   }
   
   
-  #GEOGRAPHIC VARIABLE PROCESSING
+  #GEOGRAPHIC VARIABLE PROCESSING###############################################
   
   #Stripping leading zeroes from state FIPS codes to match codes with labels 
   #captured above in geo_dict
@@ -341,7 +346,7 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   }
   
 
-  #MISSING VALUE HANDLING AND RETURN SPECIFICATION
+  #MISSING VALUE HANDLING AND RETURN SPECIFICATION##############################
   
   #Changing truly missing values to missing
   clean_response<- clean_response |>
@@ -351,9 +356,6 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",geo_
   #Indicating we want to return the processed dataset
   return(clean_response)
 }
-
-test_response<-census_get(year=2018,catvar=c("SEX","HHL"),numvar=c("AGEP","JWAP","JWDP"),
-                          geo_level="state",geo_select="Arizona")
 ```
 
 The function achieves our goals via the following general steps. First, the user inputs are thoroughly evaluated to ensure no required inputs are `NULL` and all specifications for `year`, `numvar`, `catvar`, `geo_level`, and `geo_select` are valid options. When mistakes are made, informative error messages are given to the user understands their mistake. 
@@ -361,6 +363,7 @@ The function achieves our goals via the following general steps. First, the user
 Second, the appropriate URL is constructed and the API call is made. This involves converting any `geo_select` inputs to the numeric codes the API can interpret, as well as incorporating the correct year and variable names into the URL. 
 
 Third, the data are cleaned and returned. Data cleaning has the following sub-steps:
+
 1. Our `content_cleaner()` helper function is applied to the data
 2. The non-time numeric variables are converted to numeric type
 3. Time variables are converted to time type using the midpoint of the time ranges

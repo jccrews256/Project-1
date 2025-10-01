@@ -143,7 +143,7 @@ The resultant `census_get()` function is documented in the code chunk below. Not
 
 In addition to the optional variables, `PWGTP`, the number of individuals each observation "represents," is always included in the function output. This is because we need `PWGTP` to generate population-representative tabulations from the data. 
 
-Readers are encouraged to review the `get_census()` function code for full details on function behavior. We will summarize the function steps below the code chunk. 
+Readers are encouraged to review the `census_get()` function code for full details on function behavior. We will summarize the function steps below the code chunk. 
 
 ```{r}
 #Constructing our main data requesting and cleaning function
@@ -204,9 +204,6 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",
     geo_dict<-data.frame(state=unlist(names(metadata_geo$values$item)),
                           labels=unlist(metadata_geo$values$item,use.names=FALSE))
     
-    #Removing leading zeros to protect against code format changes across years  
-    geo_dict$state<-as.character(as.numeric(geo_dict$state))
-    
     #Stripping labels down to only state names 
     #(originally include postal abbreviations)  
     geo_dict$labels<-word(geo_dict$labels,1,sep="/")
@@ -219,6 +216,10 @@ census_get<-function(year=2022,numvar="AGEP",catvar="SEX",geo_level="state",
       #Capturing FIPS codes
       selected_geos<-geo_dict[(geo_dict$labels %in% geo_select),]$state
     }
+    
+    #Removing leading zeroes to protect against code format changes across years
+    #We'll use this later! 
+    geo_dict$state<-as.character(as.numeric(geo_dict$state))
     
   #Handling region case
   } else if (geo_level=="region") {
@@ -517,7 +518,7 @@ census_get_multiyear<-function(years=2021:2022,numvar="AGEP",catvar="SEX",
 }
 ```
 
-We can test the function to ensure it works as intends. First, let's request the recent birth indicator for individuals living in the Mountain census division in 2016 and 2023. We will produce two different filtered prints to ensure we obtain both years of data; we filter to each year and keep only females. We might request these data if we wanted to analyze changes in birth rates. 
+We can test the function to ensure it works as intended. First, let's request the recent birth indicator for individuals living in the Mountain census division in 2016 and 2023. We will produce two different filtered prints to ensure we obtain both years of data; we filter to each year and keep only females. We might request these data if we wanted to analyze changes in birth rates. 
 
 ```{r}
 #Testing the wrapper for the first time
